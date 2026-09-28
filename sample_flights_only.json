@@ -1,0 +1,46 @@
+{
+  "meta": {
+    "company_name": "عطار للسياحة",
+    "company_name_en": "Attar Travel",
+    "tagline": "عطار ترافل",
+    "booking_no": "FLT991823",
+    "quotation_no": "QFLT991823",
+    "destination": "لندن",
+    "total_nights": null
+  },
+  "flights": [
+    {
+      "date": "2026-07-01",
+      "from_airport": "مطار الملك عبد العزيز الدولي - جدة (JED)",
+      "to_airport": "مطار هيثرو لندن (LHR)",
+      "airline": "الخطوط السعودية",
+      "passengers": {
+        "adults": 2,
+        "children": 1,
+        "infants": 0
+      },
+      "luggage": "قطعتين (23 كجم لكل قطعة)"
+    },
+    {
+      "date": "2026-07-12",
+      "from_airport": "مطار هيثرو لندن (LHR)",
+      "to_airport": "مطار الملك عبد العزيز الدولي - جدة (JED)",
+      "airline": "الخطوط السعودية",
+      "passengers": {
+        "adults": 2,
+        "children": 1,
+        "infants": 0
+      },
+      "luggage": "قطعتين (23 كجم لكل قطعة)"
+    }
+  ],
+  "total_price": {
+    "amount": "9,840.00",
+    "currency": "ريال سعودي"
+  },
+  "notes": [
+    "التواجد في المطار قبل الرحلة الدولية بـ 3 ساعات على الأقل.",
+    "التذاكر خاضعة لرسوم التعديل والإلغاء بحسب شروط الدرجة السعرية لطيران السعودية.",
+    "يرجى التأكد من صلاحية جواز السفر لمدة لا تقل عن 6 أشهر من تاريخ السفر."
+  ]
+}
