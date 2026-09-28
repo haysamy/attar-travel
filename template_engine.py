@@ -181,14 +181,38 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]]) -> str:
 
         has_any_type = any(getattr(f, "flight_type", None) for f in pkg.flights)
 
+        if has_any_type:
+            type_th = '<th class="py-2.5 px-2 text-center" style="width: 10%;">نوع الرحلة</th>'
+            date_th = '<th class="py-2.5 px-2 text-center" style="width: 12%;">التاريخ</th>'
+            time_th = '<th class="py-2.5 px-2 text-center" style="width: 14%;">وقت الإقلاع</th>'
+            from_th = '<th class="py-2.5 px-2 text-center" style="width: 22%;">من مطار</th>'
+            to_th = '<th class="py-2.5 px-2 text-center" style="width: 22%;">إلى مطار</th>'
+            pax_th = '<th class="py-2.5 px-2 text-center" style="width: 10%;">المسافرين</th>'
+            lug_th = '<th class="py-2.5 px-2 text-center" style="width: 10%;">الأمتعة</th>'
+        else:
+            type_th = ""
+            date_th = '<th class="py-2.5 px-2 text-center" style="width: 14%;">التاريخ</th>'
+            time_th = '<th class="py-2.5 px-2 text-center" style="width: 16%;">وقت الإقلاع</th>'
+            from_th = '<th class="py-2.5 px-2 text-center" style="width: 25%;">من مطار</th>'
+            to_th = '<th class="py-2.5 px-2 text-center" style="width: 25%;">إلى مطار</th>'
+            pax_th = '<th class="py-2.5 px-2 text-center" style="width: 10%;">المسافرين</th>'
+            lug_th = '<th class="py-2.5 px-2 text-center" style="width: 10%;">الأمتعة</th>'
+
         flight_rows = []
         for f in pkg.flights:
             airline_sub = (
-                f'<div class="text-[#0284c7] font-bold text-[11px] md:text-xs mt-0.5">{html.escape(f.airline)}</div>'
+                f'<div class="text-[#0284c7] font-semibold text-[10px] md:text-[11px] mt-0.5">{html.escape(f.airline)}</div>'
                 if f.airline
                 else ""
             )
-            dept_time = html.escape(getattr(f, "departure_time", None) or "10:30 صباحاً")
+
+            dept_time_raw = str(getattr(f, "departure_time", "") or "10:30 صباحاً").strip()
+            if "(" in dept_time_raw and ")" in dept_time_raw:
+                main_time = dept_time_raw[:dept_time_raw.find("(")].strip()
+                sub_note = dept_time_raw[dept_time_raw.find("(")+1:dept_time_raw.rfind(")")].strip()
+                dept_time_html = f'<div class="font-bold text-slate-800 text-[11px] md:text-xs">{html.escape(main_time)}</div><div class="text-[9px] md:text-[10px] text-slate-500 font-normal leading-tight mt-0.5">{html.escape(sub_note)}</div>'
+            else:
+                dept_time_html = f'<div class="font-bold text-slate-800 text-[11px] md:text-xs">{html.escape(dept_time_raw)}</div>'
 
             ftype = getattr(f, "flight_type", None) or ""
             if "دولي" in ftype:
@@ -198,7 +222,7 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]]) -> str:
             else:
                 badge_type = '<span class="inline-flex items-center gap-1 bg-slate-50 text-slate-700 border border-slate-300 px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm whitespace-nowrap">✈️ رحلة</span>'
 
-            type_td = f'<td class="p-2.5 text-center">{badge_type}</td>' if has_any_type else ""
+            type_td = f'<td class="p-2 text-center align-middle">{badge_type}</td>' if has_any_type else ""
 
             # Smart Luggage Display
             raw_luggage = (f.luggage or "20 كجم").strip()
@@ -206,14 +230,14 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]]) -> str:
             has_pax = any(w in raw_luggage for w in ["لكل مسافر", "للراكب", "per person", "per passenger"])
 
             if has_handbag or "حسب" in raw_luggage:
-                luggage_inner = f'<div class="font-bold text-slate-800">{html.escape(raw_luggage)}</div>'
+                luggage_inner = f'<div class="font-bold text-slate-800 text-[11px] md:text-xs">{html.escape(raw_luggage)}</div>'
             else:
                 pax_line = "" if has_pax else '<div class="text-slate-400 text-[10px]">لكل مسافر</div>'
                 has_shahn = "شحن" in raw_luggage
                 shahn_suffix = "" if has_shahn else " شحن"
                 luggage_inner = f"""
-                <div class="font-bold text-slate-800">{html.escape(raw_luggage)}{shahn_suffix}</div>
-                <div class="text-slate-500 text-[11px]">+ 7 كجم حقيبة يد (كابينة)</div>
+                <div class="font-bold text-slate-800 text-[11px] md:text-xs">{html.escape(raw_luggage)}{shahn_suffix}</div>
+                <div class="text-slate-500 text-[10px]">+ 7 كجم حقيبة يد (كابينة)</div>
                 {pax_line}
                 """
 
@@ -221,37 +245,35 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]]) -> str:
             <tr class="hover:bg-sky-50/40 transition avoid-break">
               {type_td}
               <!-- Flight Date -->
-              <td class="p-3 font-bold text-slate-800 whitespace-nowrap font-num">
+              <td class="p-2 font-bold text-slate-800 text-[11px] md:text-xs align-middle font-num">
                 {html.escape(f.date)}
               </td>
               <!-- Departure Time -->
-              <td class="p-3 font-bold text-slate-800 whitespace-nowrap">
-                {dept_time}
+              <td class="p-2 align-middle leading-snug">
+                {dept_time_html}
               </td>
               <!-- From Airport & Airline -->
-              <td class="p-3">
-                <div class="font-bold text-slate-900">{html.escape(f.from_airport)}</div>
+              <td class="p-2 align-middle text-right leading-snug">
+                <div class="font-bold text-slate-900 text-[11px] md:text-xs leading-snug">{html.escape(f.from_airport)}</div>
                 {airline_sub}
               </td>
               <!-- To Airport -->
-              <td class="p-3 font-bold text-sky-950">
+              <td class="p-2 align-middle text-right leading-snug font-bold text-sky-950 text-[11px] md:text-xs">
                 {html.escape(f.to_airport)}
               </td>
               <!-- Passengers -->
-              <td class="p-3 leading-tight text-[11px] md:text-xs font-num">
+              <td class="p-2 align-middle leading-tight text-[10px] md:text-[11px] font-num">
                 <div>البالغين: <span class="font-bold text-slate-900">{f.passengers.adults}</span></div>
                 <div>الاطفال: <span class="font-bold text-slate-900">{f.passengers.children}</span></div>
                 <div>رضيع: <span class="font-bold text-slate-900">{f.passengers.infants}</span></div>
               </td>
               <!-- Luggage -->
-              <td class="p-3 leading-tight text-[11px] md:text-xs font-num">
+              <td class="p-2 align-middle leading-tight text-[10px] md:text-[11px] font-num">
                 {luggage_inner}
               </td>
             </tr>
             """
             flight_rows.append(row)
-
-        type_th = '<th class="py-2.5 px-2">نوع الرحلة</th>' if has_any_type else ""
 
         flights_html = f"""
         <!-- SECTION: FLIGHT BOOKING -->
@@ -263,17 +285,17 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]]) -> str:
               <span class="tracking-wide">{flight_title}</span>
             </div>
           </div>
-          <div class="overflow-x-auto border border-amber-300 rounded-xl shadow-sm avoid-break">
-            <table class="w-full text-center border-collapse text-xs md:text-sm">
+          <div class="border border-amber-300 rounded-xl shadow-sm avoid-break overflow-hidden">
+            <table class="w-full text-center border-collapse text-xs md:text-sm" style="table-layout: fixed; width: 100%;">
               <thead>
                 <tr class="bg-gradient-to-r from-[#ea580c] to-[#f97316] text-white font-extrabold divide-x divide-white/20">
                   {type_th}
-                  <th class="py-2.5 px-2">التاريخ</th>
-                  <th class="py-2.5 px-2">وقت الإقلاع</th>
-                  <th class="py-2.5 px-2">من مطار</th>
-                  <th class="py-2.5 px-2">إلى مطار</th>
-                  <th class="py-2.5 px-2">المسافرين</th>
-                  <th class="py-2.5 px-2">الأمتعة</th>
+                  {date_th}
+                  {time_th}
+                  {from_th}
+                  {to_th}
+                  {pax_th}
+                  {lug_th}
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200 text-slate-700 font-semibold bg-white">
