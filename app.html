@@ -289,12 +289,13 @@
       flex: 1;
       display: flex;
       justify-content: center;
-      padding: 20px;
-      overflow-y: auto;
+      padding: 16px;
+      overflow: auto;
     }
 
     .preview-iframe {
-      width: 210mm;
+      width: 100%;
+      max-width: 210mm;
       min-height: 100%;
       border: none;
       background: #ffffff;
@@ -348,7 +349,8 @@
     <div class="nav-actions">
       <button class="btn btn-secondary" onclick="updatePreview()">🔄 تحديث المعاينة</button>
       <button class="btn btn-accent" onclick="printQuotation()">🖨️ طباعة مباشرة</button>
-      <button class="btn btn-primary" onclick="exportPdf()">⬇️ تصدير PDF احترافي</button>
+      <button class="btn btn-primary" onclick="exportPdf('continuous')" title="تصدير العرض كصفحة واحدة متصلة بالكامل بدون حدود أو فواصل A4">⬇️ تصدير PDF (متصل بدون حدود A4)</button>
+      <button class="btn btn-secondary" style="background-color: #0284c7; color: #ffffff;" onclick="exportPdf('a4')" title="تصدير العرض بمقاس صفحات A4 القياسية للطباعة الورقية">📄 تصدير PDF (صفحات A4)</button>
     </div>
   </header>
 
@@ -495,16 +497,18 @@
       }
     }
 
-    async function exportPdf() {
+    async function exportPdf(mode = 'continuous') {
       const jsonStr = document.getElementById('jsonInput').value;
       try {
         const parsed = JSON.parse(jsonStr);
-        showLoading('جاري معالجة البيانات وتصدير ملف الـ PDF عبر محرك Chromium...');
+        const modeLabel = mode === 'a4' ? 'صفحات A4 قياسية' : 'صفحة متصلة بدون حدود A4';
+        showLoading(`جاري تصدير ملف الـ PDF (${modeLabel}) عبر محرك Chromium...`);
 
-        const res = await fetch('/api/generate-pdf', {
+        const payload = Object.assign({}, parsed, { _pdf_mode: mode });
+        const res = await fetch(`/api/generate-pdf?mode=${encodeURIComponent(mode)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(parsed)
+          body: JSON.stringify(payload)
         });
 
         if (!res.ok) {
@@ -517,13 +521,14 @@
         const a = document.createElement('a');
         a.href = url;
         const dest = parsed?.meta?.destination || 'travel_package';
-        a.download = `عرض_سعر_${dest}.pdf`;
+        const suffix = mode === 'a4' ? '_A4' : '_متصل';
+        a.download = `عرض_سعر_${dest}${suffix}.pdf`;
         document.body.appendChild(a);
         a.click();
         a.remove();
         window.URL.revokeObjectURL(url);
         hideLoading();
-        setStatus('تم تصدير وتحميل ملف الـ PDF بنجاح! 🎉', 'success');
+        setStatus(`تم تصدير وتحميل ملف الـ PDF (${modeLabel}) بنجاح! 🎉`, 'success');
       } catch (err) {
         hideLoading();
         alert('حدث خطأ أثناء تصدير الـ PDF: ' + err.message);
@@ -531,10 +536,13 @@
       }
     }
 
-    function printQuotation() {
+    function printQuotation(mode = 'continuous') {
       const iframe = document.getElementById('previewIframe');
       if (iframe && iframe.contentWindow) {
         iframe.contentWindow.focus();
+        if (typeof iframe.contentWindow.setPrintMode === 'function') {
+          iframe.contentWindow.setPrintMode(mode);
+        }
         iframe.contentWindow.print();
       }
     }

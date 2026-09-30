@@ -19,18 +19,101 @@ def clean_markdown(val: str) -> str:
     return s.strip()
 
 
+ARABIC_MONTHS = {
+    "يناير": 1, "فبراير": 2, "مارس": 3, "ابريل": 4, "أبريل": 4,
+    "مايو": 5, "يونيو": 6, "يوليو": 7, "اغسطس": 8, "أغسطس": 8,
+    "سبتمبر": 9, "اكتوبر": 10, "أكتوبر": 10, "نوفمبر": 11, "ديسمبر": 12
+}
+
+
+def parse_arabic_time(t_str: str) -> Optional[int]:
+    """Converts Arabic time string (e.g. '12:30 ظهراً', '3:40 عصراً') to minutes from midnight."""
+    if not t_str:
+        return None
+    m = re.search(r"(\d{1,2})\s*:\s*(\d{2})", t_str)
+    if not m:
+        return None
+    hour = int(m.group(1))
+    minute = int(m.group(2))
+    is_pm = any(w in t_str for w in ["مساء", "عصر", "ظهر", "م", "ليلا", "ليلاً"])
+    is_am = any(w in t_str for w in ["صباح", "ص", "فجر", "فجراً"])
+    if is_pm:
+        if hour < 12:
+            hour += 12
+    elif is_am:
+        if hour == 12:
+            hour = 0
+    return hour * 60 + minute
+
+
+def format_arabic_time(minutes: int) -> str:
+    """Formats minutes from midnight into standard Arabic time string."""
+    minutes = minutes % (24 * 60)
+    hour = minutes // 60
+    minute = minutes % 60
+    if hour == 0:
+        return f"12:{minute:02d} صباحاً"
+    elif hour < 12:
+        return f"{hour}:{minute:02d} صباحاً"
+    elif hour == 12:
+        return f"12:{minute:02d} ظهراً"
+    elif hour < 16:
+        return f"{hour - 12}:{minute:02d} ظهراً"
+    elif hour < 19:
+        return f"{hour - 12}:{minute:02d} عصراً"
+    else:
+        return f"{hour - 12}:{minute:02d} مساءً"
+
+
+def parse_transit_minutes(dur_str: str) -> Optional[int]:
+    """Parses transit duration string (e.g. '50 دقيقة', '8 ساعات و30 دقيقة') to minutes."""
+    if not dur_str:
+        return None
+    total = 0
+    hr_m = re.search(r"(\d+)\s*(?:ساعة|ساعات|س)", dur_str)
+    if hr_m:
+        total += int(hr_m.group(1)) * 60
+    elif "ساعتين" in dur_str:
+        total += 120
+    elif "ساعة" in dur_str:
+        total += 60
+
+    min_m = re.search(r"(\d+)\s*(?:دقيقة|دقائق|د)", dur_str)
+    if min_m:
+        total += int(min_m.group(1))
+    elif "نصف ساعة" in dur_str:
+        total += 30
+
+    return total if total > 0 else None
+
+
 def parse_date_obj(date_str: str) -> Optional[datetime]:
-    """Tries to parse standard Arabic/English date formats."""
+    """Tries to parse standard Arabic/English date formats, including Arabic month names."""
+    if not date_str:
+        return None
+    cleaned = clean_markdown(date_str).strip()
     formats = [
         "%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d",
         "%d-%m-%y", "%d.%m.%Y", "%Y.%m.%d"
     ]
-    cleaned = clean_markdown(date_str).strip()
     for fmt in formats:
         try:
             return datetime.strptime(cleaned, fmt)
         except ValueError:
             continue
+
+    # Try matching Arabic month names (e.g. '20 نوفمبر' or '20 نوفمبر 2026')
+    for m_name, m_num in ARABIC_MONTHS.items():
+        if m_name in cleaned:
+            d_m = re.search(r"(\d{1,2})", cleaned)
+            y_m = re.search(r"(20\d{2})", cleaned)
+            day = int(d_m.group(1)) if d_m else 1
+            year = int(y_m.group(1)) if y_m else datetime.now().year
+            try:
+                return datetime(year, m_num, day)
+            except ValueError:
+                pass
+    return None
 def generate_smart_notes(data: Dict[str, Any]) -> List[str]:
     notes = []
     has_flights = bool(data.get("flights"))
@@ -243,12 +326,17 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
                 "check_out": check_out
             })
 
-    # --- 2.2 Parse Flights (Supports رحلة الذهاب, رحلة العودة, الرحلة الأولى, etc.) ---
+    # --- 2.2 Parse Flights (Supports رحلة الذهاب, رحلة العودة, رحلة متابعة, رحلة داخلية, ترانزيت, etc.) ---
     if "flights" in sections_text:
         flt_text = sections_text["flights"]
-        # Split by flight boundaries
+
+        # Check for section-wide luggage note at the end (e.g. "الأمتعة: 25 كجم + 7 كجم كابينة")
+        section_luggage_match = re.findall(r"الأمتعة\s*:\s*([^\n\r]+)", flt_text)
+        global_luggage = clean_markdown(section_luggage_match[-1]) if section_luggage_match else "20 كيلو"
+
+        # Split by flight boundaries including connecting/transit legs
         flight_blocks = re.split(
-            r"(?i)(?=(?:(?:رحلة|الرحلة)\s*(?:الذهاب|العودة|مغادرة|وصول|داخلية|دولية|\d+|الأولى|الثانية|الثالثة|الرابعة|الخامسة|الأول|الثاني)|الطيران\s*(?:الداخلي|الدولي)|Flight\s*\d+))",
+            r"(?i)(?=(?:(?:رحلة|الرحلة)\s*(?:الذهاب|ذهاب|العودة|عودة|مغادرة|وصول|داخلية|داخلي|دولية|دولي|متابعة|تكميلية|ترانزيت|ربط|\d+|الأولى|الثانية|الثالثة|الرابعة|الخامسة|الأول|الثاني)|الطيران\s*(?:الداخلي|الدولي)|Flight\s*\d+))",
             flt_text
         )
 
@@ -256,15 +344,18 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
         if len([b for b in flight_blocks if "من:" in b or "من :" in b or "التاريخ:" in b]) <= 1 and flt_text.count("التاريخ:") > 1:
             flight_blocks = re.split(r"(?=\bالتاريخ\s*:)", flt_text)
 
-        parsed_flight_dates = []
+        raw_flights = []
 
         for fblk in flight_blocks:
             if "من:" not in fblk and "من :" not in fblk and "إلى:" not in fblk and "الى:" not in fblk:
                 continue
 
-            date_m = re.search(r"التاريخ\s*:\s*([0-9\-\/]+)", fblk)
-            date_str = clean_markdown(date_m.group(1)) if date_m else "2026-11-25"
-            parsed_flight_dates.append(date_str)
+            label_m = re.search(r"^(?:(?:رحلة|الرحلة)\s*[^\n\r:]+|طيران\s*[^\n\r:]+)", fblk.strip())
+            label = clean_markdown(label_m.group(0)) if label_m else ""
+
+            # Extract full date string with Arabic month names (e.g. '20 نوفمبر')
+            date_m = re.search(r"التاريخ\s*:\s*([^\n\r]+)", fblk)
+            date_str = clean_markdown(date_m.group(1)) if date_m else "2026-11-20"
 
             from_m = re.search(r"من\s*:\s*([^\n\r]+)", fblk)
             from_ap = clean_markdown(from_m.group(1)) if from_m else "المطار"
@@ -283,26 +374,42 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
                 infants = int(pax_m.group(3)) if pax_m.group(3) else 0
 
             luggage_m = re.search(r"الأمتعة\s*:\s*([^\n\r]+)", fblk)
-            luggage = clean_markdown(luggage_m.group(1)) if luggage_m else "20 كيلو"
+            luggage = clean_markdown(luggage_m.group(1)) if luggage_m else global_luggage
 
-            time_m = re.search(r"(?:وقت الإقلاع|وقت الاقلاع|الوقت|الساعة)\s*:\s*([^\n\r]+)", fblk)
+            time_m = re.search(r"(?:وقت الإقلاع|وقت الاقلاع|الإقلاع|الاقلاع|الوقت|الساعة)\s*:\s*([^\n\r]+)", fblk)
             departure_time = clean_markdown(time_m.group(1)) if time_m else "10:30 صباحاً"
+
+            arr_m = re.search(r"(?:وقت الوصول|وقت وصول|الوصول)\s*:\s*([^\n\r]+)", fblk)
+            arrival_time = clean_markdown(arr_m.group(1)) if arr_m else None
+
+            tr_ap_m = re.search(r"(?:مطار الترانزيت|محطة الترانزيت|ترانزيت في|التوقف في|مطار التوقف)\s*:\s*([^\n\r]+)", fblk)
+            transit_ap_single = clean_markdown(tr_ap_m.group(1)) if tr_ap_m else None
+
+            tr_m = re.search(r"(?:مدة الترانزيت|الترانزيت|مدة التوقف|التوقف)\s*:\s*([^\n\r]+)", fblk)
+            transit_dur = clean_markdown(tr_m.group(1)) if tr_m else None
+            # If user wrote "الترانزيت: مطار الدوحة (ساعتين)" without separate transit_ap_m
+            if transit_dur and not transit_ap_single and ("مطار" in transit_dur or "الدوحة" in transit_dur or "اسطنبول" in transit_dur or "إسطنبول" in transit_dur or "دبي" in transit_dur or "أبوظبي" in transit_dur or "القاهرة" in transit_dur or "فرانكفورت" in transit_dur):
+                paren_m = re.search(r"([^\(\|\-]+?)\s*[\(\|\-]\s*([^\)\n\r]+)\)?", transit_dur)
+                if paren_m:
+                    transit_ap_single = paren_m.group(1).strip()
+                    transit_dur = paren_m.group(2).strip()
 
             type_m = re.search(r"(?:نوع الرحلة|نوع الطيران|التصنيف)\s*:\s*([^\n\r]+)", fblk)
             flight_type = None
             fblk_no_airports = re.sub(r"(?:من|إلى|الى)\s*:[^\n\r]+", "", fblk)
             if type_m:
                 flight_type = clean_markdown(type_m.group(1)).strip()
-            elif re.search(r"(?:طيران\s*داخلي|رحلة\s*داخلية|\bداخلي\b|internal|domestic)", fblk_no_airports, re.IGNORECASE):
+            elif re.search(r"(?:طيران\s*داخلي|رحلة\s*داخلية|\bداخلي\b|internal|domestic)", fblk_no_airports, re.IGNORECASE) or "داخلية" in label or "داخلي" in label:
                 flight_type = "طيران داخلي"
-            elif re.search(r"(?:طيران\s*دولي|رحلة\s*دولية|\bدولي\b|international)", fblk_no_airports, re.IGNORECASE):
+            elif re.search(r"(?:طيران\s*دولي|رحلة\s*دولية|\bدولي\b|international)", fblk_no_airports, re.IGNORECASE) or "دولية" in label or "دولي" in label or "الذهاب" in label or "العودة" in label:
                 flight_type = "طيران دولي"
             elif "الطيران الداخلي" in flt_text[:120] or "طيران داخلي" in flt_text[:120] or "internal" in flt_text[:120].lower():
                 flight_type = "طيران داخلي"
             elif "الطيران الدولي" in flt_text[:120] or "طيران دولي" in flt_text[:120] or "international" in flt_text[:120].lower():
                 flight_type = "طيران دولي"
 
-            data["flights"].append({
+            raw_flights.append({
+                "label": label,
                 "date": date_str,
                 "from_airport": from_ap,
                 "to_airport": to_ap,
@@ -314,8 +421,131 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
                 },
                 "luggage": luggage,
                 "departure_time": departure_time,
+                "arrival_time": arrival_time,
+                "transit_airport": transit_ap_single,
+                "transit_duration": transit_dur,
                 "flight_type": flight_type
             })
+
+        # Smart Grouping of Multi-Leg / Connecting Flights
+        grouped_flights = []
+        i = 0
+        while i < len(raw_flights):
+            curr = raw_flights[i]
+            connecting_legs = []
+            j = i + 1
+            while j < len(raw_flights):
+                nxt = raw_flights[j]
+                is_connecting = (
+                    "متابعة" in nxt.get("label", "") or
+                    "ترانزيت" in nxt.get("label", "") or
+                    "ربط" in nxt.get("label", "") or
+                    (nxt.get("from_airport") and curr.get("to_airport") and nxt["from_airport"] in curr["to_airport"] and not any(kw in nxt.get("label", "") for kw in ["رحلة العودة", "العودة", "رحلة الذهاب", "الذهاب", "رحلة داخلية", "الرحلة الثانية", "الرحلة الثالثة", "الرحلة الرابعة"]))
+                )
+                # Ensure it's not an explicitly separate major journey
+                if any(kw in nxt.get("label", "") for kw in ["رحلة داخلية", "الداخلية", "رحلة العودة", "العودة", "رحلة الذهاب", "الذهاب", "الرحلة الثانية", "الرحلة الثالثة", "الرحلة الرابعة"]) and not any(kw in nxt.get("label", "") for kw in ["متابعة", "ربط"]):
+                    break
+                if is_connecting:
+                    connecting_legs.append(nxt)
+                    j += 1
+                else:
+                    break
+
+            if connecting_legs:
+                first_leg = curr
+                last_leg = connecting_legs[-1]
+                transit_ap = first_leg["to_airport"]
+                transit_dur = connecting_legs[0].get("transit_duration") or first_leg.get("transit_duration")
+
+                # Auto-calculate arrival at transit airport if not explicitly specified
+                first_arr = first_leg.get("arrival_time")
+                if not first_arr and transit_dur and connecting_legs[0].get("departure_time"):
+                    t_dept = parse_arabic_time(connecting_legs[0]["departure_time"])
+                    d_dur = parse_transit_minutes(transit_dur)
+                    if t_dept is not None and d_dur is not None:
+                        t_first_dept = parse_arabic_time(first_leg.get("departure_time", ""))
+                        if t_first_dept is not None and t_dept < t_first_dept:
+                            t_dept += 1440
+                        arr_mins = t_dept - d_dur
+                        first_arr = format_arabic_time(arr_mins)
+
+                dates = [first_leg["date"]] + [c["date"] for c in connecting_legs if c.get("date")]
+                unique_dates = []
+                for d in dates:
+                    if d not in unique_dates:
+                        unique_dates.append(d)
+                date_display = " - ".join(unique_dates)
+
+                seg_list = [{
+                    "segment_type": "إقلاع",
+                    "date": first_leg["date"],
+                    "from_airport": first_leg["from_airport"],
+                    "to_airport": first_leg["to_airport"],
+                    "airline": first_leg.get("airline"),
+                    "departure_time": first_leg["departure_time"],
+                    "arrival_time": first_arr,
+                    "transit_duration": transit_dur
+                }]
+                for cl in connecting_legs:
+                    seg_list.append({
+                        "segment_type": "رحلة متابعة",
+                        "date": cl.get("date", first_leg["date"]),
+                        "from_airport": cl["from_airport"],
+                        "to_airport": cl["to_airport"],
+                        "airline": cl.get("airline") or first_leg.get("airline"),
+                        "departure_time": cl["departure_time"],
+                        "arrival_time": cl.get("arrival_time"),
+                        "transit_duration": cl.get("transit_duration")
+                    })
+
+                journey_item = {
+                    "date": date_display,
+                    "from_airport": first_leg["from_airport"],
+                    "to_airport": last_leg["to_airport"],
+                    "transit_airport": transit_ap,
+                    "transit_duration": transit_dur,
+                    "airline": first_leg.get("airline") or last_leg.get("airline"),
+                    "departure_time": first_leg["departure_time"],
+                    "arrival_time": last_leg.get("arrival_time") or first_arr,
+                    "flight_type": first_leg.get("flight_type") or "طيران دولي",
+                    "flight_label": first_leg.get("label") or "رحلة دولية",
+                    "luggage": first_leg.get("luggage", global_luggage),
+                    "passengers": first_leg.get("passengers", {"adults": 2, "children": 0, "infants": 0}),
+                    "segments": seg_list
+                }
+                grouped_flights.append(journey_item)
+                i = j
+            else:
+                has_single_transit = bool(curr.get("transit_airport") or curr.get("transit_duration"))
+                seg_list = [{
+                    "segment_type": "ترانزيت" if has_single_transit else "مباشر",
+                    "date": curr["date"],
+                    "from_airport": curr["from_airport"],
+                    "to_airport": curr["to_airport"],
+                    "airline": curr.get("airline"),
+                    "departure_time": curr["departure_time"],
+                    "arrival_time": curr.get("arrival_time"),
+                    "transit_duration": curr.get("transit_duration")
+                }]
+                journey_item = {
+                    "date": curr["date"],
+                    "from_airport": curr["from_airport"],
+                    "to_airport": curr["to_airport"],
+                    "transit_airport": curr.get("transit_airport"),
+                    "transit_duration": curr.get("transit_duration"),
+                    "airline": curr.get("airline"),
+                    "departure_time": curr["departure_time"],
+                    "arrival_time": curr.get("arrival_time"),
+                    "flight_type": curr.get("flight_type") or "طيران دولي",
+                    "flight_label": curr.get("label") or "رحلة طيران",
+                    "luggage": curr.get("luggage", global_luggage),
+                    "passengers": curr.get("passengers", {"adults": 2, "children": 0, "infants": 0}),
+                    "segments": seg_list
+                }
+                grouped_flights.append(journey_item)
+                i += 1
+
+        data["flights"] = grouped_flights
 
     # --- 2.3 Parse Car Rentals (استئجار سيارة) ---
     if "car_rentals" in sections_text:
@@ -379,15 +609,30 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
         transports_list = []
 
         # Detect vehicle from text context
-        default_vehicle = "سيارة خاصة"
+        is_train_section = any(w in tr_text for w in ["قطار", "القطارات", "Railjet", "EuroCity", "Train"])
+        default_vehicle = "قطار سياحي سريع" if is_train_section else "سيارة خاصة"
         if "مرسيدس فيتو" in tr_text:
             default_vehicle = "مرسيدس فيتو VIP"
         elif "فان" in tr_text:
             default_vehicle = "فان سياحي"
         elif "حافلة" in tr_text or "باص" in tr_text:
             default_vehicle = "حافلة سياحية"
+        elif is_train_section:
+            if "الدرجة الأولى" in tr_text or "درجة أولى" in tr_text:
+                default_vehicle = "قطار سريع (درجة أولى)"
+            else:
+                default_vehicle = "قطار سياحي سريع"
         elif "سائق خاص" in tr_text or "سيارة خاصة" in tr_text:
             default_vehicle = "سيارة خاصة"
+
+        detail_prefixes = (
+            "وقت المغادرة", "وقت الإقلاع", "وقت الاقلاع", "مغادرة", "المغادرة",
+            "وقت الوصول", "وصول", "الوصول",
+            "نوع التذكرة", "الدرجة", "درجة الحجز", "المقاعد",
+            "من محطة", "إلى محطة", "الى محطة", "المحطة",
+            "رقم القطار", "شركة القطار", "نوع القطار", "القطار",
+            "المسار", "التفاصيل", "ملاحظة", "يشمل", "شامل"
+        )
 
         for line in lines_tr:
             line_s = line.strip()
@@ -395,15 +640,26 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
                 continue
 
             # Skip section headings or bullet notes like "4. المواصلات والجولات..."
-            if re.match(r"^\d+\.\s*(?:الأنشطة|المسارات|المواصلات|الجولات)", line_s):
+            if re.match(r"^(?:\d+\.\s*)?(?:الأنشطة|المسارات|المواصلات|الجولات|القطارات|حجز القطار)", line_s):
                 continue
-            if any(h in line_s for h in ["الأنشطة والمسارات", "المواصلات والجولات", "بسائق خاص"]):
+            if any(h in line_s for h in ["الأنشطة والمسارات", "المواصلات والجولات", "المواصلات والقطارات", "بسائق خاص"]):
                 continue
 
             is_item_line = bool(re.match(r"^اليوم\s+[^\(:]+[\(:]", line_s))
             if not is_item_line:
-                # Is it a city header? (Must not be a bullet point, sentence or vehicle note)
-                if (len(line_s) < 35 and 
+                # Check if this line is a sub-detail of the most recent item (e.g. وقت المغادرة, وقت الوصول, نوع التذكرة)
+                if current_items and (line_s.startswith(detail_prefixes) or ":" in line_s or len(line_s) >= 35):
+                    last_item = current_items[-1]
+                    clean_detail = clean_markdown(line_s).strip(" .-•*")
+                    if clean_detail:
+                        last_item["activities"].append(clean_detail)
+                    # Upgrade vehicle badge if first class is mentioned in sub-details
+                    if ("الدرجة الأولى" in clean_detail or "درجة أولى" in clean_detail) and "قطار" in last_item.get("vehicle_type", ""):
+                        last_item["vehicle_type"] = "قطار سريع (درجة أولى)"
+                    continue
+
+                # Otherwise, is it a city/route header? (e.g. "جنيف - فيينا" or "بانكوك")
+                if (len(line_s) < 40 and 
                     not line_s.startswith(("-", "•", "*", "السيارة", "الاستقبال", "التنقلات", "الجولات", "خدمة", "مدة")) and
                     not line_s.endswith((".", "!", "؟", ":")) and
                     not any(kw in line_s for kw in ["سائق", "وقود", "شامل", "طوال", "المطار", "فترة", "برنامج", "توصيل", "استقبال"])):
@@ -426,14 +682,21 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
                     rest = day_m.group(3).strip()
 
                     vehicle = default_vehicle
-                    veh_m = re.search(r"\(([^)]*(?:سيارة|فان|باص|حافلة|VIP|مرسيدس)[^)]*)\)[\.\s]*$", rest)
-                    if veh_m:
-                        vehicle = clean_markdown(veh_m.group(1)).strip()
-                        rest = rest[:veh_m.start()].strip()
+                    if any(w in rest for w in ["قطار", "Railjet", "EuroCity", "Train"]):
+                        if "الدرجة الأولى" in rest or "درجة أولى" in rest:
+                            vehicle = "قطار سريع (درجة أولى)"
+                        else:
+                            vehicle = "قطار سياحي سريع"
+                    else:
+                        veh_m = re.search(r"\(([^)]*(?:سيارة|فان|باص|حافلة|VIP|مرسيدس|قطار)[^)]*)\)[\.\s]*$", rest)
+                        if veh_m:
+                            vehicle = clean_markdown(veh_m.group(1)).strip()
+                            rest = rest[:veh_m.start()].strip()
 
                     activities = []
                     act_m = re.search(r"\(([^)]+)\)", rest)
-                    if act_m and "-" in act_m.group(1):
+                    # Only split parentheses as activities if it's a dash-separated Arabic list of sights, not an English train name like (Railjet / EuroCity Fast Train)
+                    if act_m and "-" in act_m.group(1) and not re.search(r"[A-Za-z]{3,}", act_m.group(1)):
                         acts_str = act_m.group(1)
                         activities = [clean_markdown(a).strip() for a in acts_str.split("-") if a.strip()]
                         title_clean = (rest[:act_m.start()] + rest[act_m.end():]).strip(" .:-")
@@ -464,6 +727,18 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
     # --- 2.5 Parse Extra Services ---
     if "extra_services" in sections_text:
         srv_text = sections_text["extra_services"]
+        arabic_days_map = {
+            1: "اليوم الأول", 2: "اليوم الثاني", 3: "اليوم الثالث", 4: "اليوم الرابع",
+            5: "اليوم الخامس", 6: "اليوم السادس", 7: "اليوم السابع", 8: "اليوم الثامن",
+            9: "اليوم التاسع", 10: "اليوم العاشر", 11: "اليوم الحادي عشر", 12: "اليوم الثاني عشر",
+            13: "اليوم الثالث عشر", 14: "اليوم الرابع عشر", 15: "اليوم الخامس عشر"
+        }
+        trip_start_date = None
+        if data["flights"] and data["flights"][0].get("date"):
+            trip_start_date = parse_date_obj(data["flights"][0]["date"].split(" - ")[0].strip())
+        if not trip_start_date and data["hotels"] and data["hotels"][0].get("check_in"):
+            trip_start_date = parse_date_obj(data["hotels"][0]["check_in"].strip())
+
         for line in srv_text.splitlines():
             line_s = line.strip()
             if not line_s or "خدمات" in line_s or re.match(r"^\d+\.", line_s):
@@ -473,6 +748,13 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
             if name_m:
                 s_name = clean_markdown(name_m.group(1)).strip()
                 details = name_m.group(2)
+
+                # Check if the first segment before '|' is a descriptive note (not العدد and not التاريخ)
+                detail_parts = [p.strip() for p in details.split("|") if p.strip()]
+                if detail_parts and not any(k in detail_parts[0] for k in ["العدد", "التاريخ", "اليوم"]):
+                    extra_desc = clean_markdown(detail_parts[0]).strip()
+                    if extra_desc and not extra_desc.isdigit():
+                        s_name = f"{s_name} ({extra_desc})"
 
                 qty = 1
                 qty_m = re.search(r"العدد\s*[:\s]*(\d+)", details)
@@ -488,7 +770,7 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
                 elif data["hotels"] and data["hotels"][0].get("check_in"):
                     date_s = data["hotels"][0]["check_in"]
 
-                country = data["meta"]["destination"]
+                country = re.sub(r"\s*\([^)]+\)", "", data["meta"]["destination"]).strip()
                 country_m = re.search(r"\|\s*([^\s\|]+(?:\s+[^\s\|]+)?)\s*\|", details)
                 if country_m and "العدد" not in country_m.group(1) and "التاريخ" not in country_m.group(1):
                     country = clean_markdown(country_m.group(1)).strip()
@@ -497,6 +779,21 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
                 day_m = re.search(r"\((اليوم\s+[^\)]+)\)", details)
                 if day_m:
                     day_label = day_m.group(1).strip()
+                else:
+                    # Try matching date_s with transport items or calculating from trip_start_date
+                    matched_day = None
+                    for t_grp in data.get("transports", []):
+                        for t_it in t_grp.get("items", []):
+                            if t_it.get("date") == date_s and t_it.get("day_label"):
+                                matched_day = t_it["day_label"]
+                                break
+                    if matched_day:
+                        day_label = matched_day
+                    elif trip_start_date:
+                        srv_d = parse_date_obj(date_s)
+                        if srv_d and srv_d >= trip_start_date:
+                            diff_days = (srv_d - trip_start_date).days + 1
+                            day_label = arabic_days_map.get(diff_days, f"اليوم {diff_days}")
 
                 data["extra_services"].append({
                     "day_label": day_label,
@@ -523,14 +820,14 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
                 })
 
     # --- 2.6 Parse Total Price ---
-    total_m = re.search(r"(?:الإجمالي كلياً|الاجمالي كليا|السعر الإجمالي|المبلغ الإجمالي)\s*:\s*([0-9\.,]+)\s*([^\n\r]+)", full_text)
+    total_m = re.search(r"(?:الإجمالي كلياً|الاجمالي كليا|السعر الإجمالي|المبلغ الإجمالي|السعر|إجمالي السعر|التكلفة الإجمالية|التكلفة)\s*:\s*([0-9\.,]+)\s*([^\n\r]+)", full_text)
     if total_m:
         data["total_price"] = {
             "amount": clean_markdown(total_m.group(1)).strip(),
             "currency": clean_markdown(total_m.group(2)).strip()
         }
     else:
-        total_text_m = re.search(r"(?:الإجمالي كلياً|الاجمالي كليا|السعر الإجمالي|المبلغ الإجمالي)\s*:\s*([^\n\r]+)", full_text)
+        total_text_m = re.search(r"(?:الإجمالي كلياً|الاجمالي كليا|السعر الإجمالي|المبلغ الإجمالي|السعر|إجمالي السعر|التكلفة الإجمالية|التكلفة)\s*:\s*([^\n\r]+)", full_text)
         if total_text_m:
             raw_val = clean_markdown(total_text_m.group(1)).strip()
             curr_match = re.search(r"[–\-]\s*(ريال\s*سعودي|ريال|SAR|USD|\$|EUR|درهم|دينار)", raw_val)
@@ -560,6 +857,22 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
     if not data["notes"]:
         data["notes"] = generate_smart_notes(data)
 
+    # --- 2.7.1 Auto-detect destination from flights if generic ---
+    if data["meta"]["destination"] in ["رحلة سياحية", "تايلند"] and data["flights"]:
+        dest_cities = []
+        for flt in data["flights"]:
+            to_ap = flt.get("to_airport", "")
+            cleaned_ap = re.sub(r"[-–—,\s]*(?:مبنى|صالة|تيرمينال|Terminal)\s*[A-Za-z0-9أ-ي]+", "", to_ap, flags=re.IGNORECASE)
+            cleaned_ap = re.sub(r"\([A-Z]{3}\)", "", cleaned_ap).strip(" -–—,")
+            parts = [p.strip() for p in re.split(r"[-–—]", cleaned_ap) if p.strip()]
+            candidate = parts[-1] if len(parts) > 1 else cleaned_ap
+            candidate = re.sub(r"(?:مطار|الدولي|المحلية|المحلي|الجديد|القديم)", "", candidate).strip()
+            # Filter out common home departure cities (e.g. Jeddah, Riyadh, etc.)
+            if candidate and candidate not in dest_cities and not any(home in candidate for home in ["جدة", "الرياض", "الدمام", "المدينة"]):
+                dest_cities.append(candidate)
+        if dest_cities:
+            data["meta"]["destination"] = " و ".join(dest_cities)
+
     # --- 2.8 Auto-calculate Nights Duration if not provided ---
     if not data["meta"]["total_nights"]:
         # Try calculating from hotels
@@ -569,8 +882,10 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
                 data["meta"]["total_nights"] = total_h_nights
         # Otherwise try from flights
         elif data["flights"] and len(data["flights"]) >= 2:
-            d1 = parse_date_obj(data["flights"][0]["date"])
-            d2 = parse_date_obj(data["flights"][-1]["date"])
+            f_first_date = data["flights"][0]["date"].split("-")[0].strip()
+            f_last_date = data["flights"][-1]["date"].split("-")[-1].strip()
+            d1 = parse_date_obj(f_first_date)
+            d2 = parse_date_obj(f_last_date)
             if d1 and d2 and d2 > d1:
                 data["meta"]["total_nights"] = (d2 - d1).days
 

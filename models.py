@@ -16,15 +16,31 @@ class FlightPassengerInfo(BaseModel):
         return f"البالغين: {self.adults}<br>الاطفال: {self.children}<br>رضيع: {self.infants}"
 
 
+class FlightSegment(BaseModel):
+    segment_type: Optional[str] = Field("إقلاع", description="نوع القطاع: إقلاع أو رحلة متابعة أو مباشر")
+    date: Optional[str] = Field(None, description="تاريخ هذا القطاع")
+    from_airport: str = Field(..., description="مطار الإقلاع للقطاع")
+    to_airport: str = Field(..., description="مطار الوصول للقطاع")
+    airline: Optional[str] = Field(None, description="اسم شركة الطيران للقطاع")
+    departure_time: Optional[str] = Field(None, description="وقت الإقلاع للقطاع")
+    arrival_time: Optional[str] = Field(None, description="وقت الوصول للقطاع")
+    transit_duration: Optional[str] = Field(None, description="مدة الترانزيت إن وجدت")
+
+
 class FlightItem(BaseModel):
-    date: str = Field(..., description="تاريخ الرحلة مثلاً 2026-11-25")
-    from_airport: str = Field(..., description="مطار الإقلاع")
-    to_airport: str = Field(..., description="مطار الوصول")
-    airline: Optional[str] = Field(None, description="اسم شركة الطيران مثلاً اير اشيا")
+    date: str = Field(..., description="تاريخ الرحلة مثلاً 20 نوفمبر")
+    from_airport: str = Field(..., description="مطار الإقلاع الرئيسي للرحلة")
+    to_airport: str = Field(..., description="مطار الوصول النهائي للرحلة")
+    airline: Optional[str] = Field(None, description="اسم شركة الطيران")
     passengers: FlightPassengerInfo = Field(default_factory=FlightPassengerInfo)
     luggage: str = Field("20 كيلو", description="الوزن / الأمتعة")
     departure_time: Optional[str] = Field("10:30 صباحاً", description="وقت الإقلاع")
+    arrival_time: Optional[str] = Field(None, description="وقت الوصول")
+    transit_duration: Optional[str] = Field(None, description="مدة الترانزيت الكلية إن وجدت")
+    transit_airport: Optional[str] = Field(None, description="مطار الترانزيت الوسيط إن وجد")
     flight_type: Optional[str] = Field(None, description="نوع الرحلة: طيران دولي أو طيران داخلي")
+    flight_label: Optional[str] = Field(None, description="تسمية الرحلة: رحلة الذهاب، رحلة العودة، رحلة داخلية")
+    segments: Optional[List[FlightSegment]] = Field(default_factory=list, description="تفاصيل قطاعات الرحلة ومحطات الترانزيت")
 
 
 class HotelItem(BaseModel):

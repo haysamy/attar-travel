@@ -130,12 +130,13 @@ class QuotationRequestHandler(BaseHTTPRequestHandler):
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
 
-        # Auto-reload template_engine and text_parser so changes are always fresh
+        # Auto-reload modules so changes are always fresh
         try:
             importlib.reload(template_engine)
             importlib.reload(text_parser)
-        except Exception:
-            pass
+            importlib.reload(pdf_generator)
+        except Exception as e:
+            print(f"[Reload Warning]: {e}")
 
         try:
             payload = json.loads(body) if body else {}
@@ -170,11 +171,19 @@ class QuotationRequestHandler(BaseHTTPRequestHandler):
 
         elif url == "/api/generate-pdf":
             try:
+                from urllib.parse import parse_qs, urlparse
+                query_params = parse_qs(urlparse(self.path).query)
+                pdf_mode = "continuous"
+                if "mode" in query_params and query_params["mode"]:
+                    pdf_mode = query_params["mode"][0]
+                elif isinstance(payload, dict) and "_pdf_mode" in payload:
+                    pdf_mode = str(payload.pop("_pdf_mode") or "continuous")
+
                 html_output = template_engine.render_html(payload)
                 with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_pdf:
                     tmp_pdf_path = tmp_pdf.name
 
-                asyncio.run(pdf_generator.generate_pdf_async(html_output, tmp_pdf_path))
+                asyncio.run(pdf_generator.generate_pdf_async(html_output, tmp_pdf_path, pdf_mode=pdf_mode))
 
                 with open(tmp_pdf_path, "rb") as f:
                     pdf_bytes = f.read()
