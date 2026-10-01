@@ -368,9 +368,9 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
         section_luggage_match = re.findall(r"(?:الأمتعة|الوزن المسموح به|الوزن المسموح|الوزن)\s*:\s*([^\n\r]+)", flt_text)
         global_luggage = clean_markdown(section_luggage_match[-1]) if section_luggage_match else "20 كيلو"
 
-        # Split by flight boundaries including connecting/transit legs
+        # Split by flight boundaries including connecting/transit legs (at start of line so 'الرحلة' is never split into 'ال' + 'رحلة')
         flight_blocks = re.split(
-            r"(?i)(?=(?:(?:رحلة|الرحلة)\s*(?:الذهاب|ذهاب|العودة|عودة|مغادرة|وصول|داخلية|داخلي|دولية|دولي|متابعة|تكميلية|ترانزيت|ربط|\d+|الأولى|الثانية|الثالثة|الرابعة|الخامسة|الأول|الثاني)|الطيران\s*(?:الداخلي|الدولي)|Flight\s*\d+))",
+            r"(?im)(?=^[ \t]*(?:(?:ال)?رحلة\s*(?:الذهاب|ذهاب|العودة|عودة|مغادرة|وصول|داخلية|داخلي|دولية|دولي|متابعة|تكميلية|ترانزيت|ربط|\d+|الأولى|الثانية|الثالثة|الرابعة|الخامسة|السادسة|الأول|الثاني)|الطيران\s*(?:الداخلي|الدولي)|Flight\s*\d+))",
             flt_text
         )
 
@@ -385,7 +385,7 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
             if not has_from_to:
                 continue
 
-            label_m = re.search(r"^(?:(?:رحلة|الرحلة)\s*[^\n\r:]+|طيران\s*[^\n\r:]+)", fblk.strip())
+            label_m = re.search(r"^(?:(?:ال)?رحلة\s*[^\n\r:]+|طيران\s*[^\n\r:]+)", fblk.strip())
             label = clean_markdown(label_m.group(0)) if label_m else ""
 
             # Extract full date string with Arabic month names (e.g. '20 نوفمبر')
@@ -474,21 +474,33 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
         # Smart Grouping of Multi-Leg / Connecting Flights
         grouped_flights = []
         i = 0
+        separate_journey_keywords = [
+            "داخلية", "داخلي", "العودة", "عودة", "الذهاب", "ذهاب",
+            "الأولى", "الثانية", "الثالثة", "الرابعة", "الخامسة", "السادسة"
+        ]
         while i < len(raw_flights):
             curr = raw_flights[i]
             connecting_legs = []
             j = i + 1
             while j < len(raw_flights):
                 nxt = raw_flights[j]
-                is_connecting = (
-                    "متابعة" in nxt.get("label", "") or
-                    "ترانزيت" in nxt.get("label", "") or
-                    "ربط" in nxt.get("label", "") or
-                    (nxt.get("from_airport") and curr.get("to_airport") and nxt["from_airport"] in curr["to_airport"] and not any(kw in nxt.get("label", "") for kw in ["رحلة العودة", "العودة", "رحلة الذهاب", "الذهاب", "رحلة داخلية", "الرحلة الثانية", "الرحلة الثالثة", "الرحلة الرابعة"]))
-                )
-                # Ensure it's not an explicitly separate major journey
-                if any(kw in nxt.get("label", "") for kw in ["رحلة داخلية", "الداخلية", "رحلة العودة", "العودة", "رحلة الذهاب", "الذهاب", "الرحلة الثانية", "الرحلة الثالثة", "الرحلة الرابعة"]) and not any(kw in nxt.get("label", "") for kw in ["متابعة", "ربط"]):
+                nxt_label = nxt.get("label", "")
+                explicit_transit = any(kw in nxt_label for kw in ["متابعة", "ترانزيت", "ربط", "تكميلية"])
+                explicit_separate = any(kw in nxt_label for kw in separate_journey_keywords) and not explicit_transit
+
+                if explicit_separate:
                     break
+
+                # Check if dates are within 1 day and it's not a round-trip back to origin
+                d_curr = parse_date_obj(curr.get("date", ""))
+                d_nxt = parse_date_obj(nxt.get("date", ""))
+                within_one_day = (not d_curr or not d_nxt or abs((d_nxt - d_curr).days) <= 1)
+                not_round_trip = (curr.get("from_airport") != nxt.get("to_airport"))
+
+                is_connecting = (
+                    explicit_transit or
+                    (not nxt_label and within_one_day and not_round_trip and nxt.get("from_airport") and curr.get("to_airport") and nxt["from_airport"] in curr["to_airport"])
+                )
                 if is_connecting:
                     connecting_legs.append(nxt)
                     j += 1

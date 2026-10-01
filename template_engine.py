@@ -533,6 +533,13 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]]) -> str:
                 dep_num, dep_period, dep_note = _split_time_parts(dep_raw)
                 arr_num, arr_period, arr_note = _split_time_parts(arr_raw) if arr_raw else ("--:--", "توقيت محلي", "")
 
+            # Detect cabin class if mentioned in flight_type (e.g. درجة رجال الأعمال / الدرجة الأولى)
+            cabin_badge_suffix = ""
+            if "رجال الأعمال" in combined_type_str or "بزنس" in combined_type_str or "Business" in combined_type_str:
+                cabin_badge_suffix = " - درجة رجال الأعمال"
+            elif "الدرجة الأولى" in combined_type_str or "درجة أولى" in combined_type_str or "First Class" in combined_type_str:
+                cabin_badge_suffix = " - الدرجة الأولى"
+
             # Choose theme colors & badges based on flight category (No Open-Jaw or Multi-City jargon)
             if is_return:
                 # Theme 3: Indigo / Return Leg
@@ -540,7 +547,7 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]]) -> str:
                 header_bg = "bg-gradient-to-r from-indigo-700 via-indigo-800 to-[#0E446E]"
                 header_sub_text = "text-indigo-200"
                 header_icon = '<path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>'
-                header_badge_title = "رحلة العودة (ترانزيت)" if is_transit else "رحلة العودة (مباشرة)"
+                header_badge_title = ("رحلة العودة (ترانزيت)" if is_transit else "رحلة العودة (مباشرة)") + cabin_badge_suffix
                 sidebar_bg = "bg-indigo-50/40 border-indigo-200"
                 sidebar_title_cls = "text-indigo-950 border-indigo-200"
                 sidebar_box_border = "border-indigo-200/70"
@@ -558,7 +565,11 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]]) -> str:
                 header_bg = "bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-700"
                 header_sub_text = "text-emerald-100"
                 header_icon = '<path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>'
-                header_badge_title = "رحلة داخلية (ترانزيت)" if is_transit else "رحلة مباشرة - داخلي / أوروبي"
+                if "أوروبي" in combined_type_str and "داخلي" not in combined_type_str:
+                    base_dom_title = "رحلة طيران أوروبي (ترانزيت)" if is_transit else "رحلة طيران أوروبي (مباشرة)"
+                else:
+                    base_dom_title = "رحلة داخلية (ترانزيت)" if is_transit else "رحلة داخلية (مباشرة)"
+                header_badge_title = base_dom_title + cabin_badge_suffix
                 sidebar_bg = "bg-emerald-50/50 border-emerald-200"
                 sidebar_title_cls = "text-emerald-950 border-emerald-200"
                 sidebar_box_border = "border-emerald-200/70"
@@ -576,7 +587,7 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]]) -> str:
                 header_bg = "bg-gradient-to-r from-orange-500 via-[#EB5E18] to-orange-600"
                 header_sub_text = "text-orange-100"
                 header_icon = '<path d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>'
-                header_badge_title = "رحلة ترانزيت دولية" if is_transit else "رحلة دولية مباشرة"
+                header_badge_title = ("رحلة ترانزيت دولية" if is_transit else "رحلة دولية مباشرة") + cabin_badge_suffix
                 sidebar_bg = "bg-[#FFF6F0]/60 border-orange-200"
                 sidebar_title_cls = "text-orange-950 border-orange-200/80"
                 sidebar_box_border = "border-orange-200/70"
