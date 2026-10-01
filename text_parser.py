@@ -54,15 +54,49 @@ def format_arabic_time(minutes: int) -> str:
     if hour == 0:
         return f"12:{minute:02d} صباحاً"
     elif hour < 12:
-        return f"{hour}:{minute:02d} صباحاً"
+        return f"{hour:02d}:{minute:02d} صباحاً"
     elif hour == 12:
         return f"12:{minute:02d} ظهراً"
     elif hour < 16:
-        return f"{hour - 12}:{minute:02d} ظهراً"
+        return f"{hour - 12:02d}:{minute:02d} ظهراً"
     elif hour < 19:
-        return f"{hour - 12}:{minute:02d} عصراً"
+        return f"{hour - 12:02d}:{minute:02d} عصراً"
     else:
-        return f"{hour - 12}:{minute:02d} مساءً"
+        return f"{hour - 12:02d}:{minute:02d} مساءً"
+
+
+def normalize_12h_time(t_str: Optional[str]) -> Optional[str]:
+    """Converts any 24-hour time (e.g. '23:20 مساءً' or '16:20 عصراً (29-11-2026)') into strict 12-hour Arabic time."""
+    if not t_str:
+        return t_str
+    s = clean_markdown(t_str)
+    # Remove leading emoji if present
+    s = re.sub(r"^[^\w\d\u0600-\u06FF]+", "", s).strip()
+    m = re.search(r"\b(\d{1,2})\s*:\s*(\d{2})\b", s)
+    if not m:
+        return s
+    hr = int(m.group(1))
+    mn = int(m.group(2))
+    if hr >= 13 or hr == 0:
+        period = "صباحاً"
+        if hr == 0:
+            hr12 = 12
+            period = "فجراً"
+        elif hr < 16:
+            hr12 = hr - 12
+            period = "ظهراً"
+        elif hr < 19:
+            hr12 = hr - 12
+            period = "عصراً"
+        else:
+            hr12 = hr - 12
+            period = "مساءً"
+        # Preserve any trailing parenthesis note like (21-11-2026) or (اليوم التالي)
+        paren_m = re.search(r"(\([^)]+\))", s)
+        extra = f" {paren_m.group(1)}" if paren_m else ""
+        return f"{hr12:02d}:{mn:02d} {period}{extra}"
+    return s
+
 
 
 def parse_transit_minutes(dur_str: str) -> Optional[int]:
@@ -207,17 +241,17 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
     # 2. Section Extraction Patterns
     section_patterns = [
         ("hotels", r"(?:حجز الفنادق|الفنادق|فنادق|Accommodation)"),
-        ("flights", r"(?:حجز الطيران|الطيران الداخلي|الطيران الدولي|الطيران|Flights)"),
+        ("flights", r"(?:حجز الطيران|الطيران الداخلي|الطيران الدولي|الطيران|Flights|رحلة الذهاب\s*:|رحلة المغادرة\s*:)") ,
         ("transports", r"(?:الأنشطة والمسارات السياحية|الأنشطة والمسارات|المسارات السياحية|المسارات المقترحة|المسارات|الأنشطة|المواصلات والجولات|المواصلات|الجولات السياحية|الجولات|Transfers & Tours)"),
         ("car_rentals", r"(?:استئجار السيارات|استئجار سيارة|تأجير سيارة|تأجير السيارات|إيجار سيارات|إيجار السيارات|Car Rental)"),
         ("extra_services", r"(?:خدمات وهدايا مشمولة|خدمات وهدايا|خدمات أخرى|خدمات مجانية|Free Services|خدمات إضافية)"),
-        ("total_price", r"(?:السعر الإجمالي|الإجمالي كلياً|الاجمالي كليا|Total Price)"),
+        ("total_price", r"(?:السعر الإجمالي|الإجمالي كلياً|الاجمالي كليا|Total Price|💰\s*السعر\s*:|^السعر\s*:)"),
         ("notes", r"(?:ملاحظات مهمة جداً|ملاحظات مهمة|الشروط والأحكام|شروط الحجز|Notes)")
     ]
 
     sec_indices = []
     for sec_id, pattern in section_patterns:
-        m = re.search(pattern, full_text, re.IGNORECASE)
+        m = re.search(pattern, full_text, re.IGNORECASE | re.MULTILINE)
         if m:
             sec_indices.append((m.start(), sec_id))
     sec_indices.sort()
@@ -331,7 +365,7 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
         flt_text = sections_text["flights"]
 
         # Check for section-wide luggage note at the end (e.g. "الأمتعة: 25 كجم + 7 كجم كابينة")
-        section_luggage_match = re.findall(r"الأمتعة\s*:\s*([^\n\r]+)", flt_text)
+        section_luggage_match = re.findall(r"(?:الأمتعة|الوزن المسموح به|الوزن المسموح|الوزن)\s*:\s*([^\n\r]+)", flt_text)
         global_luggage = clean_markdown(section_luggage_match[-1]) if section_luggage_match else "20 كيلو"
 
         # Split by flight boundaries including connecting/transit legs
@@ -341,27 +375,37 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
         )
 
         # Fallback if no explicit split keyword was found but multiple flights exist
-        if len([b for b in flight_blocks if "من:" in b or "من :" in b or "التاريخ:" in b]) <= 1 and flt_text.count("التاريخ:") > 1:
-            flight_blocks = re.split(r"(?=\bالتاريخ\s*:)", flt_text)
+        if len([b for b in flight_blocks if "من:" in b or "من :" in b or "التاريخ:" in b or "تاريخ السفر:" in b]) <= 1 and (flt_text.count("التاريخ:") > 1 or flt_text.count("تاريخ السفر:") > 1):
+            flight_blocks = re.split(r"(?=\b(?:التاريخ|تاريخ السفر)\s*:)", flt_text)
 
         raw_flights = []
 
         for fblk in flight_blocks:
-            if "من:" not in fblk and "من :" not in fblk and "إلى:" not in fblk and "الى:" not in fblk:
+            has_from_to = any(k in fblk for k in ["من:", "من :", "إلى:", "الى:", "💨", "✈️", "->"])
+            if not has_from_to:
                 continue
 
             label_m = re.search(r"^(?:(?:رحلة|الرحلة)\s*[^\n\r:]+|طيران\s*[^\n\r:]+)", fblk.strip())
             label = clean_markdown(label_m.group(0)) if label_m else ""
 
             # Extract full date string with Arabic month names (e.g. '20 نوفمبر')
-            date_m = re.search(r"التاريخ\s*:\s*([^\n\r]+)", fblk)
+            date_m = re.search(r"(?:التاريخ|تاريخ السفر|تاريخ الرحلة)\s*:\s*([^\n\r]+)", fblk)
             date_str = clean_markdown(date_m.group(1)) if date_m else "2026-11-20"
 
             from_m = re.search(r"من\s*:\s*([^\n\r]+)", fblk)
-            from_ap = clean_markdown(from_m.group(1)) if from_m else "المطار"
-
             to_m = re.search(r"(?:إلى|الى)\s*:\s*([^\n\r]+)", fblk)
-            to_ap = clean_markdown(to_m.group(1)) if to_m else "المطار"
+            from_ap = clean_markdown(from_m.group(1)) if from_m else None
+            to_ap = clean_markdown(to_m.group(1)) if to_m else None
+
+            if not from_ap or not to_ap:
+                # Fallback for emoji route line like: 🚦 جدة 💨 جاكرتا 🚦
+                route_emoji_m = re.search(r"(?:🚦\s*)?([\u0600-\u06FF\s]{2,25}?)\s*(?:💨|✈️|->|←|إلى)\s*([\u0600-\u06FF\s]{2,25}?)(?:\s*🚦|$)", fblk, re.MULTILINE)
+                if route_emoji_m:
+                    from_ap = from_ap or clean_markdown(route_emoji_m.group(1)).strip()
+                    to_ap = to_ap or clean_markdown(route_emoji_m.group(2)).strip()
+
+            from_ap = from_ap or "المطار"
+            to_ap = to_ap or "المطار"
 
             airline_m = re.search(r"شركة الطيران\s*:\s*([^\n\r]+)", fblk)
             airline = clean_markdown(airline_m.group(1)) if airline_m else None
@@ -373,14 +417,14 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
                 children = int(pax_m.group(2)) if pax_m.group(2) else 0
                 infants = int(pax_m.group(3)) if pax_m.group(3) else 0
 
-            luggage_m = re.search(r"الأمتعة\s*:\s*([^\n\r]+)", fblk)
+            luggage_m = re.search(r"(?:الأمتعة|الوزن المسموح به|الوزن المسموح|الوزن|الحقائب)\s*:\s*([^\n\r]+)", fblk)
             luggage = clean_markdown(luggage_m.group(1)) if luggage_m else global_luggage
 
-            time_m = re.search(r"(?:وقت الإقلاع|وقت الاقلاع|الإقلاع|الاقلاع|الوقت|الساعة)\s*:\s*([^\n\r]+)", fblk)
-            departure_time = clean_markdown(time_m.group(1)) if time_m else "10:30 صباحاً"
+            time_m = re.search(r"(?:وقت الإقلاع|وقت الاقلاع|إقلاع الرحلة الساعة|اقلاع الرحلة الساعة|الإقلاع|الاقلاع|الوقت|الساعة)\s*:\s*([^\n\r]+)", fblk)
+            departure_time = normalize_12h_time(time_m.group(1)) if time_m else "10:30 صباحاً"
 
-            arr_m = re.search(r"(?:وقت الوصول|وقت وصول|الوصول)\s*:\s*([^\n\r]+)", fblk)
-            arrival_time = clean_markdown(arr_m.group(1)) if arr_m else None
+            arr_m = re.search(r"(?:وقت الوصول|وقت وصول|الوصول(?:\s+إلى\s+[^\n\r:]+)?(?:\s+الساعة)?)\s*:\s*([^\n\r]+)", fblk)
+            arrival_time = normalize_12h_time(arr_m.group(1)) if arr_m else None
 
             tr_ap_m = re.search(r"(?:مطار الترانزيت|محطة الترانزيت|ترانزيت في|التوقف في|مطار التوقف)\s*:\s*([^\n\r]+)", fblk)
             transit_ap_single = clean_markdown(tr_ap_m.group(1)) if tr_ap_m else None
