@@ -193,15 +193,24 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
     lines = [clean_markdown(line) for line in text.splitlines() if line.strip()]
     full_text = "\n".join(lines)
 
+    ar_months_num = {
+        1: "يناير", 2: "فبراير", 3: "مارس", 4: "أبريل",
+        5: "مايو", 6: "يونيو", 7: "يوليو", 8: "أغسطس",
+        9: "سبتمبر", 10: "أكتوبر", 11: "نوفمبر", 12: "ديسمبر"
+    }
+    now_dt = datetime.now()
+    today_ar_str = f"{now_dt.day} {ar_months_num[now_dt.month]} {now_dt.year}"
+
     data: Dict[str, Any] = {
         "meta": {
             "company_name": "عطار للسياحة",
             "company_name_en": "Attar Travel",
             "tagline": "عطار ترافل",
-            "booking_no": "TAJ" + datetime.now().strftime("%y%m%d%H"),
-            "quotation_no": "QTAJ" + datetime.now().strftime("%y%m%d%H"),
+            "booking_no": "TAJ" + now_dt.strftime("%y%m%d%H"),
+            "quotation_no": "QTAJ" + now_dt.strftime("%y%m%d%H"),
             "destination": "رحلة سياحية",
             "total_nights": None,
+            "issue_date": today_ar_str,
             "booking_status": "حجز مبدئي غير مؤكد"
         },
         "hotels": [],
@@ -233,6 +242,10 @@ def parse_travel_text(text: str) -> Dict[str, Any]:
         data["meta"]["destination"] = clean_markdown(dest_m.group(1)).strip()
         if dest_m.group(2):
             data["meta"]["total_nights"] = int(dest_m.group(2))
+
+    issue_m = re.search(r"تاريخ الإصدار\s*:\s*([^\n\r]+)", full_text)
+    if issue_m:
+        data["meta"]["issue_date"] = clean_markdown(issue_m.group(1)).strip()
 
     status_m = re.search(r"(?:حالة الحجز|الحالة)\s*:\s*([^\n\r]+)", full_text)
     if status_m:

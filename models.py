@@ -92,6 +92,19 @@ class CarRentalItem(BaseModel):
     driver_type: str = Field("بدون سائق (قيادة ذاتية)", description="مع سائق أو قيادة ذاتية")
 
 
+from datetime import datetime, timezone, timedelta
+
+_AR_MONTHS = {
+    1: "يناير", 2: "فبراير", 3: "مارس", 4: "أبريل",
+    5: "مايو", 6: "يونيو", 7: "يوليو", 8: "أغسطس",
+    9: "سبتمبر", 10: "أكتوبر", 11: "نوفمبر", 12: "ديسمبر"
+}
+
+def get_today_arabic_date() -> str:
+    now = datetime.now(timezone(timedelta(hours=3)))
+    return f"{now.day} {_AR_MONTHS[now.month]} {now.year}"
+
+
 class QuotationMeta(BaseModel):
     company_name: str = Field("عطار للسياحة", description="اسم الشركة")
     company_name_en: str = Field("Attar Travel", description="اسم الشركة بالإنجليزية")
@@ -100,7 +113,7 @@ class QuotationMeta(BaseModel):
     quotation_no: str = Field("QTAJ2411724881", description="رقم عرض السعر")
     destination: str = Field("تايلند", description="الوجهة السياحية")
     total_nights: Optional[int] = Field(14, description="إجمالي عدد الليالي")
-    issue_date: Optional[str] = Field("21 سبتمبر 2026", description="تاريخ الإصدار")
+    issue_date: Optional[str] = Field(default_factory=get_today_arabic_date, description="تاريخ الإصدار")
     booking_status: Optional[str] = Field("حجز مبدئي غير مؤكد", description="حالة الحجز")
 
 

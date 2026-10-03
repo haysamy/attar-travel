@@ -12,7 +12,7 @@ import sys
 import html
 import re
 from typing import Union, Dict, Any, List
-from models import TravelPackage
+from models import TravelPackage, get_today_arabic_date
 
 # Load company branding logo (base64)
 LOGO_URI = ""
@@ -1335,7 +1335,7 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]]) -> str:
         </span>
         <span class="bg-sky-900/40 border border-sky-300/40 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full flex items-center gap-1 shadow-sm font-semibold text-white whitespace-nowrap font-num">
           <span>📅</span>
-          <span>تاريخ الإصدار: {html.escape(getattr(meta, 'issue_date', None) or '21 سبتمبر 2026')}</span>
+          <span>تاريخ الإصدار: {html.escape((getattr(meta, 'issue_date', None) if getattr(meta, 'issue_date', None) != '21 سبتمبر 2026' else None) or get_today_arabic_date())}</span>
         </span>
       </div>
     </div>
