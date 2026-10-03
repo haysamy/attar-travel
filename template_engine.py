@@ -540,29 +540,12 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]]) -> str:
             elif "الدرجة الأولى" in combined_type_str or "درجة أولى" in combined_type_str or "First Class" in combined_type_str:
                 cabin_badge_suffix = " - الدرجة الأولى"
 
-            # Choose theme colors & badges based on flight category (No Open-Jaw or Multi-City jargon)
-            if is_return:
-                # Theme 3: Indigo / Return Leg
-                card_border = "border-indigo-200"
-                header_bg = "bg-gradient-to-r from-indigo-700 via-indigo-800 to-[#0E446E]"
-                header_sub_text = "text-indigo-200"
-                header_icon = '<path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>'
-                header_badge_title = ("رحلة العودة (ترانزيت)" if is_transit else "رحلة العودة (مباشرة)") + cabin_badge_suffix
-                sidebar_bg = "bg-indigo-50/40 border-indigo-200"
-                sidebar_title_cls = "text-indigo-950 border-indigo-200"
-                sidebar_box_border = "border-indigo-200/70"
-                sidebar_icon_cls = "text-indigo-800"
-                sidebar_bag_cls = "text-indigo-900"
-                sidebar_footer_border = "border-indigo-200/60"
-                sidebar_footer_text = "text-indigo-900"
-                dest_time_cls = "text-indigo-900"
-                dest_period_cls = "text-indigo-700"
-                dest_pill_cls = "text-indigo-800 bg-indigo-100/70"
-                dest_code_cls = "text-indigo-950"
-            elif is_domestic_or_euro:
-                # Theme 2: Emerald / Domestic or Intermediate Flight
+            # Choose theme colors & badges based on flight category:
+            # 1) Domestic / European intermediate flights -> Distinct Emerald Teal (#059669 -> #0F766E)
+            # 2) International flights (Both Outbound & Return) -> Unified Royal Navy & Sky Blue (#0E446E -> #0284c7)
+            if is_domestic_or_euro:
                 card_border = "border-emerald-300"
-                header_bg = "bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-700"
+                header_bg = "bg-gradient-to-r from-[#059669] via-emerald-600 to-[#0F766E]"
                 header_sub_text = "text-emerald-100"
                 header_icon = '<path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>'
                 if "أوروبي" in combined_type_str and "داخلي" not in combined_type_str:
@@ -573,7 +556,7 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]]) -> str:
                 sidebar_bg = "bg-emerald-50/50 border-emerald-200"
                 sidebar_title_cls = "text-emerald-950 border-emerald-200"
                 sidebar_box_border = "border-emerald-200/70"
-                sidebar_icon_cls = "text-emerald-800"
+                sidebar_icon_cls = "text-emerald-700"
                 sidebar_bag_cls = "text-emerald-800"
                 sidebar_footer_border = "border-emerald-200/60"
                 sidebar_footer_text = "text-emerald-900"
@@ -582,28 +565,34 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]]) -> str:
                 dest_pill_cls = "text-emerald-800 bg-emerald-100/70"
                 dest_code_cls = "text-emerald-900"
             else:
-                # Theme 1: Orange / International Outbound Flight
-                card_border = "border-[#F9A272]"
-                header_bg = "bg-gradient-to-r from-orange-500 via-[#EB5E18] to-orange-600"
-                header_sub_text = "text-orange-100"
-                header_icon = '<path d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>'
-                header_badge_title = ("رحلة ترانزيت دولية" if is_transit else "رحلة دولية مباشرة") + cabin_badge_suffix
-                sidebar_bg = "bg-[#FFF6F0]/60 border-orange-200"
-                sidebar_title_cls = "text-orange-950 border-orange-200/80"
-                sidebar_box_border = "border-orange-200/70"
-                sidebar_icon_cls = "text-[#0E446E]"
-                sidebar_bag_cls = "text-[#EB5E18]"
-                sidebar_footer_border = "border-orange-200/60"
+                # Unified International Theme (Both Outbound & Return share the exact same Royal Navy / Sky Blue palette)
+                card_border = "border-sky-300"
+                header_bg = "bg-gradient-to-r from-[#0E446E] via-[#01579b] to-[#0284c7]"
+                header_sub_text = "text-sky-100"
+                if is_return:
+                    header_icon = '<path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>'
+                    base_intl_title = "رحلة العودة - طيران دولي (ترانزيت)" if is_transit else "رحلة العودة - طيران دولي (مباشر)"
+                else:
+                    header_icon = '<path d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>'
+                    base_intl_title = "رحلة الذهاب - طيران دولي (ترانزيت)" if is_transit else "رحلة الذهاب - طيران دولي (مباشر)"
+                header_badge_title = base_intl_title + cabin_badge_suffix
+                sidebar_bg = "bg-sky-50/50 border-sky-200"
+                sidebar_title_cls = "text-[#0E446E] border-sky-200"
+                sidebar_box_border = "border-sky-200/80"
+                sidebar_icon_cls = "text-[#0284c7]"
+                sidebar_bag_cls = "text-[#0E446E]"
+                sidebar_footer_border = "border-sky-200/70"
                 sidebar_footer_text = "text-[#0E446E]"
-                dest_time_cls = "text-emerald-700"
-                dest_period_cls = "text-emerald-800"
-                dest_pill_cls = "text-emerald-800 bg-emerald-100/70"
-                dest_code_cls = "text-emerald-900"
+                dest_time_cls = "text-[#01579b]"
+                dest_period_cls = "text-[#0284c7]"
+                dest_pill_cls = "text-[#01579b] bg-sky-100/80"
+                dest_code_cls = "text-[#0E446E]"
 
             # Middle Track & Bottom Callout Box
             if is_transit:
                 tran_code_label = f" ({transit_code})" if transit_code else ""
                 transit_ap_display = transit_ap if (not transit_code or transit_code in transit_ap) else f"{transit_ap}{tran_code_label}"
+                plane_icon_cls = "text-emerald-600" if is_domestic_or_euro else "text-[#0284c7]"
                 middle_track_html = f"""
                 <div class="flex-[1.35] min-w-0 w-full flex flex-col items-center px-1 py-1 text-center">
                   <div class="text-[11px] font-bold text-slate-600 mb-2 flex flex-wrap items-center justify-center gap-1 font-num">
@@ -619,7 +608,7 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]]) -> str:
                       </span>
                     </div>
                     <div class="h-0.5 flex-1 bg-slate-300 min-w-[8px]"></div>
-                    <svg class="w-4 h-4 text-[#EB5E18] transform rotate-180 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-4 h-4 {plane_icon_cls} transform rotate-180 shrink-0" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"></path>
                     </svg>
                   </div>
@@ -650,39 +639,7 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]]) -> str:
                   </div>
                 </div>
                 """
-            elif is_return:
-                middle_track_html = f"""
-                <div class="flex-[1.35] min-w-0 w-full flex flex-col items-center px-1 py-1 text-center">
-                  <div class="text-[11px] font-bold text-indigo-900 mb-2 flex flex-wrap items-center justify-center gap-1 font-num">
-                    <span>⏱ المدة: {html.escape(total_dur_str)}</span>
-                  </div>
-                  <div class="w-full flex items-center gap-1 my-1">
-                    <div class="h-0.5 flex-1 bg-indigo-300 min-w-[8px]"></div>
-                    <div class="badge bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full shadow-sm max-w-full">
-                      <span class="text-[10px] font-bold text-indigo-900 leading-tight">
-                        طيران مباشر بدون توقف
-                      </span>
-                    </div>
-                    <div class="h-0.5 flex-1 bg-indigo-300 min-w-[8px]"></div>
-                    <svg class="w-4 h-4 text-indigo-600 transform rotate-180 shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"></path>
-                    </svg>
-                  </div>
-                  <span class="text-[10px] text-slate-500 mt-1.5 leading-snug">وصول مباشر إلى {html.escape(dest_ap_clean)}</span>
-                </div>
-                """
-                bottom_callout_html = f"""
-                <div class="info-box bg-indigo-50/70 border border-indigo-200/80 rounded-xl p-3 flex flex-wrap items-center justify-between text-xs text-indigo-950 gap-2">
-                  <div class="flex items-start gap-2 min-w-0 flex-1">
-                    <span class="p-1 bg-indigo-200/80 rounded text-indigo-800 font-bold shrink-0">ℹ️</span>
-                    <span class="leading-snug"><strong>التوقيتات:</strong> جميع أوقات الإقلاع والوصول موضحة بالتوقيت المحلي لكل دولة ومطار بدقة.</span>
-                  </div>
-                  <div class="flex items-center gap-2 font-semibold text-indigo-900">
-                    <span>{html.escape(airline_short)}</span>
-                  </div>
-                </div>
-                """
-            else:
+            elif is_domestic_or_euro:
                 middle_track_html = f"""
                 <div class="flex-[1.35] min-w-0 w-full flex flex-col items-center px-1 py-1 text-center">
                   <div class="text-[11px] font-bold text-emerald-800 mb-2 flex flex-wrap items-center justify-center gap-1 font-num">
@@ -707,9 +664,40 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]]) -> str:
                 <div class="info-box bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-900">
                   <div class="flex items-start gap-2 min-w-0 flex-1">
                     <span class="text-emerald-600 font-bold shrink-0">✓</span>
-                    <span class="leading-snug"><strong>رحلة مباشرة بالكامل:</strong> بدون أي محطات توقف أو تغيير للطائرة، وصول سريع ومباشر.</span>
+                    <span class="leading-snug"><strong>رحلة داخلية مباشرة:</strong> بدون أي محطات توقف أو تغيير للطائرة، وصول سريع ومباشر.</span>
                   </div>
-                  <span class="font-semibold text-slate-600">{html.escape(airline_en)}</span>
+                  <span class="font-semibold text-emerald-800">{html.escape(airline_short)}</span>
+                </div>
+                """
+            else:
+                # Direct International Flight (Unified for both Outbound and Return)
+                middle_track_html = f"""
+                <div class="flex-[1.35] min-w-0 w-full flex flex-col items-center px-1 py-1 text-center">
+                  <div class="text-[11px] font-bold text-[#0E446E] mb-2 flex flex-wrap items-center justify-center gap-1 font-num">
+                    <span>⏱ المدة: {html.escape(total_dur_str)}</span>
+                  </div>
+                  <div class="w-full flex items-center gap-1 my-1">
+                    <div class="h-0.5 flex-1 bg-sky-300 min-w-[8px]"></div>
+                    <div class="badge bg-sky-50 border border-sky-200 px-2.5 py-0.5 rounded-full shadow-sm max-w-full">
+                      <span class="text-[10px] font-bold text-[#0E446E] leading-tight">
+                        طيران دولي مباشر بدون توقف
+                      </span>
+                    </div>
+                    <div class="h-0.5 flex-1 bg-sky-300 min-w-[8px]"></div>
+                    <svg class="w-4 h-4 text-[#0284c7] transform rotate-180 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"></path>
+                    </svg>
+                  </div>
+                  <span class="text-[10px] text-slate-500 mt-1.5 leading-snug">وصول مباشر إلى {html.escape(dest_ap_clean)}</span>
+                </div>
+                """
+                bottom_callout_html = f"""
+                <div class="info-box bg-sky-50/70 border border-sky-200/80 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#0E446E]">
+                  <div class="flex items-start gap-2 min-w-0 flex-1">
+                    <span class="text-[#0284c7] font-bold shrink-0">✓</span>
+                    <span class="leading-snug"><strong>رحلة دولية مباشرة بالكامل:</strong> بدون أي محطات توقف أو تغيير للطائرة، وجميع الأوقات بالتوقيت المحلي.</span>
+                  </div>
+                  <span class="font-semibold text-[#01579b]">{html.escape(airline_short)}</span>
                 </div>
                 """
 
