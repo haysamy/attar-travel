@@ -12,7 +12,9 @@ class FlightPassengerInfo(BaseModel):
     children: int = 0
     infants: int = 0
 
-    def to_display_string(self) -> str:
+    def to_display_string(self, lang: str = "ar") -> str:
+        if lang == "en":
+            return f"Adults: {self.adults}<br>Children: {self.children}<br>Infants: {self.infants}"
         return f"البالغين: {self.adults}<br>الاطفال: {self.children}<br>رضيع: {self.infants}"
 
 
@@ -100,12 +102,23 @@ _AR_MONTHS = {
     9: "سبتمبر", 10: "أكتوبر", 11: "نوفمبر", 12: "ديسمبر"
 }
 
+_EN_MONTHS = {
+    1: "January", 2: "February", 3: "March", 4: "April",
+    5: "May", 6: "June", 7: "July", 8: "August",
+    9: "September", 10: "October", 11: "November", 12: "December"
+}
+
 def get_today_arabic_date() -> str:
     now = datetime.now(timezone(timedelta(hours=3)))
     return f"{now.day} {_AR_MONTHS[now.month]} {now.year}"
 
+def get_today_english_date() -> str:
+    now = datetime.now(timezone(timedelta(hours=3)))
+    return f"{now.day} {_EN_MONTHS[now.month]} {now.year}"
+
 
 class QuotationMeta(BaseModel):
+    lang: Optional[str] = Field("ar", description="لغة العرض: ar أو en")
     company_name: str = Field("عطار للسياحة", description="اسم الشركة")
     company_name_en: str = Field("Attar Travel", description="اسم الشركة بالإنجليزية")
     tagline: str = Field("عطار ترافل", description="الشعار الترويجي")

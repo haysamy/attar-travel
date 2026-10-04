@@ -148,11 +148,16 @@ class QuotationRequestHandler(BaseHTTPRequestHandler):
         if url == "/api/parse-text":
             try:
                 raw_text = payload.get("text", "")
-                parsed_data = text_parser.parse_travel_text(raw_text)
-                html_output = template_engine.render_html(parsed_data)
+                req_lang = payload.get("lang", None)
+                if req_lang not in ("ar", "en"):
+                    req_lang = None
+                parsed_data = text_parser.parse_travel_text(raw_text, lang=req_lang)
+                detected_lang = parsed_data.get("meta", {}).get("lang") or req_lang or "ar"
+                html_output = template_engine.render_html(parsed_data, lang=detected_lang)
                 response_obj = {
                     "data": parsed_data,
-                    "html": html_output
+                    "html": html_output,
+                    "lang": detected_lang
                 }
                 self._set_headers("application/json; charset=utf-8")
                 self.wfile.write(json.dumps(response_obj, ensure_ascii=False).encode("utf-8"))
@@ -162,7 +167,10 @@ class QuotationRequestHandler(BaseHTTPRequestHandler):
 
         elif url == "/api/render":
             try:
-                html_output = template_engine.render_html(payload)
+                req_lang = payload.pop("_lang", None) if isinstance(payload, dict) else None
+                if req_lang not in ("ar", "en"):
+                    req_lang = None
+                html_output = template_engine.render_html(payload, lang=req_lang)
                 self._set_headers("text/html; charset=utf-8")
                 self.wfile.write(html_output.encode("utf-8"))
             except Exception as e:
@@ -179,7 +187,15 @@ class QuotationRequestHandler(BaseHTTPRequestHandler):
                 elif isinstance(payload, dict) and "_pdf_mode" in payload:
                     pdf_mode = str(payload.pop("_pdf_mode") or "continuous")
 
-                html_output = template_engine.render_html(payload)
+                req_lang = None
+                if "lang" in query_params and query_params["lang"]:
+                    req_lang = query_params["lang"][0]
+                elif isinstance(payload, dict) and "_lang" in payload:
+                    req_lang = str(payload.pop("_lang") or "")
+                if req_lang not in ("ar", "en"):
+                    req_lang = None
+
+                html_output = template_engine.render_html(payload, lang=req_lang)
                 with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_pdf:
                     tmp_pdf_path = tmp_pdf.name
 
