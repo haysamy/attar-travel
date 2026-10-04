@@ -1148,16 +1148,16 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]], lang: Optional[str] 
                 row = f"""
                 <tr class="hover:bg-sky-50/40 transition avoid-break">
                   <!-- Flight / Transport Date -->
-                  <td class="p-3 font-num text-slate-800 font-bold whitespace-nowrap align-top">{html.escape(item.date)}</td>
+                  <td class="p-2.5 font-num text-slate-800 font-bold whitespace-nowrap align-top">{html.escape(item.date)}</td>
                   <!-- Day Label -->
-                  <td class="p-3 font-bold text-slate-800 whitespace-nowrap align-top">{html.escape(day_lbl_disp)}</td>
+                  <td class="p-2.5 font-bold text-slate-800 whitespace-nowrap align-top">{html.escape(day_lbl_disp)}</td>
                   <!-- Vehicle Type Badge -->
-                  <td class="p-3 text-center whitespace-nowrap align-top">
-                    <span class="inline-block border border-sky-300 bg-sky-50 text-[#0284c7] font-bold px-3 py-1 rounded-full text-xs shadow-sm">{veh_label}</span>
+                  <td class="p-2.5 text-center align-top">
+                    <span class="inline-block border border-sky-300 bg-sky-50 text-[#0284c7] font-bold px-2.5 py-1 rounded-full text-xs shadow-sm leading-snug max-w-[145px]">{veh_label}</span>
                   </td>
                   <!-- Description & Route -->
                   <td class="p-3 {desc_align_cls} align-top">
-                    <div class="font-bold text-slate-900 text-xs md:text-sm">{html.escape(item.title)}</div>
+                    <div class="font-bold text-slate-900 text-xs md:text-sm leading-relaxed">{html.escape(item.title)}</div>
                     {route_html}
                     {activities_html}
                   </td>
@@ -1230,8 +1230,9 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]], lang: Optional[str] 
                     veh_col_title = "نوع السيارة"
                 th_date, th_day, th_desc = "التاريخ", "اليوم", "الوصف والمسار"
 
+            city_avoid_cls = "avoid-break" if len(grp.items) <= 4 else ""
             block = f"""
-            <div class="border-2 border-sky-300 rounded-2xl p-3 md:p-3.5 bg-white shadow-sm space-y-2.5 relative overflow-hidden avoid-break">
+            <div class="border-2 border-sky-300 rounded-2xl p-3 md:p-3.5 bg-white shadow-sm space-y-2.5 relative overflow-hidden {city_avoid_cls}">
               <!-- City Header Navy Bar -->
               <div class="bg-[#083344] text-white px-4 py-2 rounded-xl font-bold text-xs md:text-sm flex items-center justify-between shadow-sm">
                 <span>{city_title_text}</span>
@@ -1240,13 +1241,13 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]], lang: Optional[str] 
               {scope_note}
               <!-- Table -->
               <div class="overflow-x-auto border border-sky-200 rounded-xl shadow-sm">
-                <table class="w-full text-center border-collapse text-xs md:text-sm">
+                <table class="w-full text-center border-collapse text-xs md:text-sm" style="table-layout: fixed;">
                   <thead>
                     <tr class="bg-gradient-to-r from-[#0284c7] to-[#0369a1] text-white font-bold divide-x divide-white/20">
-                      <th class="py-2.5 px-3 whitespace-nowrap" style="width: 15%;">{th_date}</th>
-                      <th class="py-2.5 px-3 whitespace-nowrap" style="width: 15%;">{th_day}</th>
-                      <th class="py-2.5 px-3 whitespace-nowrap" style="width: 22%;">{veh_col_title}</th>
-                      <th class="py-2.5 px-4 {desc_align_cls}" style="width: 48%;">{th_desc}</th>
+                      <th class="py-2.5 px-2 whitespace-nowrap" style="width: 13%;">{th_date}</th>
+                      <th class="py-2.5 px-2 whitespace-nowrap" style="width: 13%;">{th_day}</th>
+                      <th class="py-2.5 px-2 whitespace-nowrap" style="width: 18%;">{veh_col_title}</th>
+                      <th class="py-2.5 px-4 {desc_align_cls}" style="width: 56%;">{th_desc}</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-200 text-slate-700 font-semibold bg-white">

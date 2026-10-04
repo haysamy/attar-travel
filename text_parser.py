@@ -368,15 +368,17 @@ def parse_travel_text(text: str, lang: Optional[str] = None) -> Dict[str, Any]:
     if status_m:
         data["meta"]["booking_status"] = clean_markdown(status_m.group(1)).strip()
 
-    # 2. Section Extraction Patterns
+    # 2. Section Extraction Patterns (Anchored to header lines to prevent false matches inside sentences/notes)
+    hdr_prefix = r"^[ \t#*•\-–🌟✈️🏨🚘🚗🚆🎁💰📌📋]*(?:(?:\d+|[١-٩]+)[\.\-\)\s]+|(?:أولاً|ثانياً|ثالثاً|رابعاً|خامساً|سادساً|سابعاً)\s*[:\-]?\s*)?"
+    hdr_suffix = r"(?:\s*\([^)\n\r]*\))?[ \t\*:：]*$"
     section_patterns = [
-        ("hotels", r"(?:حجز الفنادق|الفنادق|فنادق|Hotel Booking|Hotels & Accommodation|Accommodation|(?:\d+\.\s*)?Hotels\b)"),
-        ("flights", r"(?:حجز الطيران|الطيران الداخلي|الطيران الدولي|الطيران|Flight Booking|Flight Details|International Flights|Domestic Flights|(?:\d+\.\s*)?Flights\b|رحلة الذهاب\s*:|رحلة المغادرة\s*:|Outbound Flight\s*:|Departure Flight\s*:)") ,
-        ("transports", r"(?:الأنشطة والمسارات السياحية|الأنشطة والمسارات|المسارات السياحية|المسارات المقترحة|المسارات|الأنشطة|المواصلات والجولات|المواصلات|الجولات السياحية|الجولات|Transfers & Tours|Tours & Transfers|Transportation & Tours|Daily Itinerary|Suggested Itinerary|Itinerary & Tours|(?:\d+\.\s*)?(?:Transportation|Transfers|Tours|Itinerary)\b)"),
-        ("car_rentals", r"(?:استئجار السيارات|استئجار سيارة|تأجير سيارة|تأجير السيارات|إيجار سيارات|إيجار السيارات|Car Rental|Car Hire|Vehicle Rental|Rent a Car)"),
-        ("extra_services", r"(?:خدمات وهدايا مشمولة|خدمات وهدايا|خدمات أخرى|خدمات مجانية|Free Services|Extra Services|Included Services|Complimentary Services|Additional Services|Gifts & Services|خدمات إضافية)"),
-        ("total_price", r"(?:السعر الإجمالي|الإجمالي كلياً|الاجمالي كليا|Total Price|Grand Total|Total Package Price|Total Amount|Total Cost|💰\s*(?:السعر|Price|Total)\s*:|^(?:السعر|Price)\s*:)"),
-        ("notes", r"(?:ملاحظات مهمة جداً|ملاحظات مهمة|الشروط والأحكام|شروط الحجز|Important Notes|Terms & Conditions|Terms and Conditions|Booking Terms|Notes & Conditions|(?:\d+\.\s*)?Notes\b)")
+        ("hotels", hdr_prefix + r"(?:حجز الفنادق|الفنادق|فنادق|Hotel Booking|Hotels & Accommodation|Accommodation|Hotels)" + hdr_suffix),
+        ("flights", hdr_prefix + r"(?:حجز الطيران|الطيران الداخلي|الطيران الدولي|الطيران|Flight Booking|Flight Details|International Flights|Domestic Flights|Flights|رحلة الذهاب|رحلة المغادرة|Outbound Flight|Departure Flight)" + hdr_suffix),
+        ("transports", hdr_prefix + r"(?:الأنشطة والمسارات السياحية المقترحة|الأنشطة والمسارات السياحية|الأنشطة والمسارات|المسارات السياحية المقترحة|المسارات السياحية|المسارات المقترحة|المواصلات والجولات السياحية|المواصلات والقطارات السياحية|حجز القطارات والتنقلات السياحية|المواصلات والجولات|المواصلات والقطارات|المواصلات|الجولات السياحية|الجولات|Transfers & Sightseeing Tours|Suggested Self-Drive Sightseeing Routes|Transfers & Express Trains|Transfers & Tours|Tours & Transfers|Transportation & Tours|Daily Itinerary|Suggested Itinerary|Itinerary & Tours|Transportation|Transfers|Tours|Itinerary)" + hdr_suffix),
+        ("car_rentals", hdr_prefix + r"(?:استئجار السيارات الخاصة|استئجار السيارات|استئجار سيارة|تأجير سيارة|تأجير السيارات|إيجار سيارات|إيجار السيارات|Car Rental|Private Car Rental|Car Hire|Vehicle Rental|Rent a Car)" + hdr_suffix),
+        ("extra_services", hdr_prefix + r"(?:خدمات وهدايا مشمولة|الخدمات والهدايا المشمولة|خدمات وهدايا|خدمات أخرى مجانية|خدمات أخرى|خدمات مجانية|خدمات إضافية|Free Services|Extra Services|Included Services|Complimentary Services|Additional Services|Gifts & Services)" + hdr_suffix),
+        ("total_price", hdr_prefix + r"(?:السعر الإجمالي|الإجمالي كلياً|الاجمالي كليا|Total Price|Grand Total|Total Package Price|Total Amount|Total Cost|💰\s*(?:السعر|Price|Total)|(?:السعر|Price)\s*:)"),
+        ("notes", hdr_prefix + r"(?:ملاحظات مهمة جداً|ملاحظات مهمة|الشروط والملاحظات المهمة|الشروط والأحكام|شروط الحجز|Important Notes|Terms & Conditions|Terms and Conditions|Booking Terms|Notes & Conditions|Notes)" + hdr_suffix)
     ]
 
     sec_indices = []
@@ -396,7 +398,7 @@ def parse_travel_text(text: str, lang: Optional[str] = None) -> Dict[str, Any]:
     if "hotels" in sections_text:
         htl_text = sections_text["hotels"]
         # Split by city header or hotel header or day range header (Arabic & English)
-        split_pat = r'(?im)(?=(?:^[ \t]*(?:المدينة\s+[^\n:]+|City\s+\d+|(?:First|Second|Third|Fourth|Fifth|Sixth|Seventh|Eighth|1st|2nd|3rd|\d+(?:th)?)\s+City)\s*:|^[ \t]*(?:فندق|Hotel)\s+\d+\s*:|^[ \t]*[^\n\r:]{2,35}\s*\((?:\d+\s*(?:ليلة|ليالي|ايام|أيام|Nights?|Days?)|ليلتين|ليلة واحدة)\)))'
+        split_pat = r'(?im)(?=(?:^[ \t]*(?:المدينة\s+[^\n:]+|City\s+\d+|(?:First|Second|Third|Fourth|Fifth|Sixth|Seventh|Eighth|1st|2nd|3rd|\d+(?:th)?)\s+City)\s*:|^[ \t]*(?:فندق|Hotel)\s+\d+\s*:|^[ \t]*[^\n\r:]{2,35}\s*\((?:\d+\s*(?:ليلة|ليالي|ليالٍ|ليال|ايام|أيام|Nights?|Days?)|ليلتين|ليلة واحدة)\)))'
         hotel_blocks = [b for b in re.split(split_pat, htl_text) if re.search(r"(?:الفندق|فندق|Hotel|Resort)", b, re.IGNORECASE)]
         if not hotel_blocks and re.search(r"(?:الفندق|فندق|Hotel|Resort)", htl_text, re.IGNORECASE):
             hotel_blocks = re.split(r"(?i)(?=\b(?:الفندق|Hotel|Resort)\s*:)", htl_text)
@@ -415,10 +417,10 @@ def parse_travel_text(text: str, lang: Optional[str] = None) -> Dict[str, Any]:
                 default_ord = arabic_ordinals[h_idx] if h_idx < len(arabic_ordinals) else f"المحطة {h_idx+1}"
                 city_order = f"المدينة {default_ord}"
             city_name = data["meta"]["destination"]
-            nights_count = 1
+            nights_count = None
 
             # 1a. Arabic: المدينة الأولى: بانكوك (3 ليالي)
-            alt_city_ar = re.search(r"المدينة\s+([^:\(\n]+):\s*([^\(\n\r]+)(?:[\(\-–]\s*(\d+|ليلتين|ليلة واحدة)\s*(?:ليلة|ليالي)?)?", blk)
+            alt_city_ar = re.search(r"المدينة\s+([^:\(\n]+):\s*([^\(\n\r]+)(?:[\(\-–]\s*(\d+|ليلتين|ليلة واحدة)\s*(?:ليلة|ليالي|ليالٍ|ليال)?)?", blk)
             # 1b. English: First City: Bangkok (2 Nights) or City 1: Bangkok (2 Nights)
             alt_city_en = re.search(r"(?:((?:First|Second|Third|Fourth|Fifth|Sixth|Seventh|Eighth|1st|2nd|3rd|\d+(?:th)?)\s+City|City\s+\d+))\s*:\s*([^\(\n\r]+)(?:[\(\-–]\s*(\d+)\s*(?:Nights?|Days?)?)?", blk, re.IGNORECASE)
 
@@ -440,7 +442,7 @@ def parse_travel_text(text: str, lang: Optional[str] = None) -> Dict[str, Any]:
                     nights_count = int(raw_n)
             else:
                 # 2. بانكوك (3 ليالي) or Bangkok (3 Nights)
-                city_line_m = re.search(r"^[ \t]*([^\n\r:\(\d]{2,35}?)\s*\((?:(\d+)\s*(?:ليلة|ليالي|ايام|أيام|Nights?|Days?)|(ليلتين)|(ليلة واحدة))\)", blk, re.MULTILINE | re.IGNORECASE)
+                city_line_m = re.search(r"^[ \t]*([^\n\r:\(\d]{2,35}?)\s*\((?:(\d+)\s*(?:ليلة|ليالي|ليالٍ|ليال|ايام|أيام|Nights?|Days?)|(ليلتين)|(ليلة واحدة))\)", blk, re.MULTILINE | re.IGNORECASE)
                 if city_line_m:
                     city_name = clean_markdown(city_line_m.group(1)).strip()
                     if city_line_m.group(2):
@@ -457,6 +459,19 @@ def parse_travel_text(text: str, lang: Optional[str] = None) -> Dict[str, Any]:
             nights_explicit_m = re.search(r"(?:عدد الليالي|الليالي|Nights|Number of Nights)\s*:\s*(\d+)", blk, re.IGNORECASE)
             if nights_explicit_m:
                 nights_count = int(nights_explicit_m.group(1))
+
+            checkin_m = re.search(r"(?:تاريخ الدخول|الدخول|Check-?in Date|Check-?in)\s*:\s*([0-9\-\/]+)", blk, re.IGNORECASE)
+            checkout_m = re.search(r"(?:تاريخ الخروج|الخروج|Check-?out Date|Check-?out)\s*:\s*([0-9\-\/]+)", blk, re.IGNORECASE)
+            check_in = clean_markdown(checkin_m.group(1)) if checkin_m else "2026-11-24"
+            check_out = clean_markdown(checkout_m.group(1)) if checkout_m else "2026-11-25"
+
+            if not nights_count:
+                d_in = parse_date_obj(check_in)
+                d_out = parse_date_obj(check_out)
+                if d_in and d_out and d_out > d_in:
+                    nights_count = (d_out - d_in).days
+                else:
+                    nights_count = 1
 
             day_range_m = re.search(r"((?:اليوم|Day)\s+[^\n\-–]+?)\s*(?:[\-–]|to)\s*((?:اليوم|Day)\s+[^\n\r]+)", blk, re.IGNORECASE)
             if day_range_m:
@@ -485,11 +500,6 @@ def parse_travel_text(text: str, lang: Optional[str] = None) -> Dict[str, Any]:
             meal_m = re.search(r"(?:الوجبة|الوجبات|نظام الوجبات|Meal Plan|Meals|Board)\s*:\s*([^\n\r]+)", blk, re.IGNORECASE)
             if meal_m:
                 meal_plan = clean_markdown(meal_m.group(1))
-
-            checkin_m = re.search(r"(?:تاريخ الدخول|الدخول|Check-?in Date|Check-?in)\s*:\s*([0-9\-\/]+)", blk, re.IGNORECASE)
-            checkout_m = re.search(r"(?:تاريخ الخروج|الخروج|Check-?out Date|Check-?out)\s*:\s*([0-9\-\/]+)", blk, re.IGNORECASE)
-            check_in = clean_markdown(checkin_m.group(1)) if checkin_m else "2026-11-24"
-            check_out = clean_markdown(checkout_m.group(1)) if checkout_m else "2026-11-25"
 
             details_url = "#"
             url_m = re.search(r"(?:رابط بوكينج|رابط بوكنج|رابط الفندق|رابط التفاصيل|لينك بوكينج|لينك الفندق|رابط|الرابط|Booking|Hotel Link|Link|URL)\s*:\s*(https?://[^\s\n\r\)]+)", blk, re.IGNORECASE)
@@ -690,6 +700,19 @@ def parse_travel_text(text: str, lang: Optional[str] = None) -> Dict[str, Any]:
                             t_dept += 1440
                         arr_mins = t_dept - d_dur
                         first_arr = format_arabic_time(arr_mins, lang=detected_lang)
+                elif first_arr and not transit_dur and connecting_legs[0].get("departure_time"):
+                    t_arr = parse_arabic_time(first_arr)
+                    t_next_dept = parse_arabic_time(connecting_legs[0]["departure_time"])
+                    if t_arr is not None and t_next_dept is not None:
+                        diff_m = t_next_dept - t_arr
+                        if diff_m < 0:
+                            diff_m += 1440
+                        if 0 < diff_m <= 1440:
+                            h_tr, m_tr = divmod(diff_m, 60)
+                            if is_en:
+                                transit_dur = f"{h_tr}h {m_tr}m" if h_tr and m_tr else (f"{h_tr}h" if h_tr else f"{m_tr}m")
+                            else:
+                                transit_dur = f"{h_tr} ساعات و {m_tr} دقيقة" if h_tr and m_tr else (f"{h_tr} ساعات" if h_tr else f"{m_tr} دقيقة")
 
                 dates = [first_leg["date"]] + [c["date"] for c in connecting_legs if c.get("date")]
                 unique_dates = []
@@ -796,6 +819,11 @@ def parse_travel_text(text: str, lang: Optional[str] = None) -> Dict[str, Any]:
 
             days_m = re.search(r"(?:عدد الأيام|المدة|Number of Days|Rental Days|Days|Duration)\s*:\s*(\d+)", cblk, re.IGNORECASE)
             days_count = int(days_m.group(1)) if days_m else None
+            if not days_count:
+                pd_obj = parse_date_obj(p_date)
+                dd_obj = parse_date_obj(d_date)
+                if pd_obj and dd_obj and dd_obj > pd_obj:
+                    days_count = (dd_obj - pd_obj).days
 
             insurance_m = re.search(r"(?:التأمين|Insurance|Coverage)\s*:\s*([^\n\r]+)", cblk, re.IGNORECASE)
             insurance = clean_markdown(insurance_m.group(1)) if insurance_m else ("Full Coverage" if is_en else "شامل كلي (Full Coverage)")
@@ -844,19 +872,79 @@ def parse_travel_text(text: str, lang: Optional[str] = None) -> Dict[str, Any]:
                 default_vehicle = "Fast Train (First Class)"
         else:
             default_vehicle = "قطار سياحي سريع" if is_train_section else "سيارة خاصة"
-            if "مرسيدس فيتو" in tr_text:
+            if "مرسيدس فيتو" in tr_text and "سيارة" not in tr_text and "سياره" not in tr_text:
                 default_vehicle = "مرسيدس فيتو VIP"
-            elif "فان" in tr_text:
-                default_vehicle = "فان سياحي"
-            elif "حافلة" in tr_text or "باص" in tr_text:
-                default_vehicle = "حافلة سياحية"
             elif is_train_section:
                 if "الدرجة الأولى" in tr_text or "درجة أولى" in tr_text:
                     default_vehicle = "قطار سريع (درجة أولى)"
                 else:
                     default_vehicle = "قطار سياحي سريع"
-            elif "سائق خاص" in tr_text or "سيارة خاصة" in tr_text:
-                default_vehicle = "سيارة خاصة"
+
+        veh_kw_re = re.compile(
+            r"(?:سيار[ةه]|فان|باص|حافل[ةه]|VIP|مرسيدس|قطار|سيدان|هايس|فورتشنر|انوفا|إينوفا|جمس|سوبربان|"
+            r"Private\s*Car|Small\s*Car|Medium\s*Car|Family\s*Van|Family\s*Bus|Sedan|SUV|Van|Minivan|Bus|Coach|Mercedes|Vito|Sprinter|Train|Limousine)",
+            re.IGNORECASE
+        )
+
+        def _normalize_vehicle_ar(v_str: str) -> str:
+            v_str = clean_markdown(v_str).strip(" .:-،,")
+            replacements = {
+                "سياره": "سيارة",
+                "متوسطه": "متوسطة",
+                "صغيره": "صغيرة",
+                "كبيره": "كبيرة",
+                "خاصه": "خاصة",
+                "عائليه": "عائلية",
+                "حافله": "حافلة",
+                "سياحيه": "سياحية",
+                "فان عائلي": "فان عائلي",
+            }
+            words = v_str.split()
+            norm_words = [replacements.get(w, w) for w in words]
+            return " ".join(norm_words)
+
+        def _extract_top_level_parens(s: str):
+            """Returns list of (start_idx, end_idx, inner_text) for top-level balanced parentheses."""
+            groups = []
+            depth = 0
+            start_idx = -1
+            for idx, ch in enumerate(s):
+                if ch == "(":
+                    if depth == 0:
+                        start_idx = idx
+                    depth += 1
+                elif ch == ")":
+                    if depth > 0:
+                        depth -= 1
+                        if depth == 0 and start_idx != -1:
+                            groups.append((start_idx, idx + 1, s[start_idx + 1:idx].strip()))
+                            start_idx = -1
+            return groups
+
+        def _split_top_level_dashes(s: str):
+            """Splits string by dash (- / – / —) only at depth 0 outside nested parentheses."""
+            parts = []
+            curr = []
+            depth = 0
+            for ch in s:
+                if ch == "(":
+                    depth += 1
+                    curr.append(ch)
+                elif ch == ")":
+                    if depth > 0:
+                        depth -= 1
+                    curr.append(ch)
+                elif ch in ("-", "–", "—") and depth == 0:
+                    piece = clean_markdown("".join(curr)).strip()
+                    if piece:
+                        parts.append(piece)
+                    curr = []
+                else:
+                    curr.append(ch)
+            last_piece = clean_markdown("".join(curr)).strip()
+            if last_piece:
+                parts.append(last_piece)
+            return parts
 
         detail_prefixes = (
             "وقت المغادرة", "وقت الإقلاع", "وقت الاقلاع", "مغادرة", "المغادرة",
@@ -905,36 +993,59 @@ def parse_travel_text(text: str, lang: Optional[str] = None) -> Dict[str, Any]:
                 continue
 
             if is_item_line:
-                day_m = re.match(r"^((?:اليوم|Day)\s+[^\(:]+)(?:\(([^)]+)\))?\s*:\s*(.*)", line_s, re.IGNORECASE)
+                day_m = re.match(r"^((?:اليوم|Day)\s+[^\(:–—\-]+?)(?:\s*[\(\-–—]\s*([0-9]{4}[\/\-][0-9]{1,2}[\/\-][0-9]{1,2}|[^)\:]+)\s*\)?)?\s*:\s*(.*)", line_s, re.IGNORECASE)
                 if day_m:
                     day_label = day_m.group(1).strip()
                     date_val = day_m.group(2).strip() if day_m.group(2) else ""
                     rest = day_m.group(3).strip()
 
                     vehicle = default_vehicle
-                    if any(w in rest for w in ["قطار", "Railjet", "EuroCity", "Train"]):
+                    activities = []
+                    is_train_line = any(w in rest for w in ["قطار", "Railjet", "EuroCity", "Train"])
+                    if is_train_line:
                         if "الدرجة الأولى" in rest or "درجة أولى" in rest or "first class" in rest.lower():
                             vehicle = "Fast Train (First Class)" if is_en else "قطار سريع (درجة أولى)"
                         else:
                             vehicle = "Fast Tourist Train" if is_en else "قطار سياحي سريع"
-                    else:
-                        veh_m = re.search(r"\(([^)]*(?:سيارة|فان|باص|حافلة|VIP|مرسيدس|قطار|Private Car|Small Car|Sedan|SUV|Van|Minivan|Bus|Coach|Mercedes|Vito|Train|Limousine)[^)]*)\)[\.\s]*$", rest, re.IGNORECASE)
-                        if veh_m:
-                            vehicle = clean_markdown(veh_m.group(1)).strip()
-                            rest = rest[:veh_m.start()].strip()
 
-                    activities = []
-                    act_m = re.search(r"\(([^)]+)\)", rest)
-                    if act_m and "-" in act_m.group(1):
-                        inner_paren = act_m.group(1)
-                        is_train_paren = any(tk in inner_paren.lower() for tk in ["railjet", "eurocity", "fast train", "express"])
-                        if not is_train_paren and (is_en or not re.search(r"[A-Za-z]{3,}", inner_paren)):
-                            activities = [clean_markdown(a).strip() for a in inner_paren.split("-") if a.strip()]
-                            title_clean = (rest[:act_m.start()] + rest[act_m.end():]).strip(" .:-")
+                    paren_groups = _extract_top_level_parens(rest)
+                    spans_to_remove = []
+
+                    for g_start, g_end, g_inner in paren_groups:
+                        is_train_paren = any(tk in g_inner.lower() for tk in ["railjet", "eurocity", "fast train", "express train"])
+                        if is_train_paren:
+                            spans_to_remove.append((g_start, g_end))
+                            continue
+
+                        parts = _split_top_level_dashes(g_inner)
+                        if len(parts) > 1:
+                            # Check if first part is vehicle (e.g., "(سياره متوسطه - شاطئ 1 - شاطئ 2)")
+                            if not is_train_line and veh_kw_re.search(parts[0]) and len(parts[0]) <= 38:
+                                vehicle = _normalize_vehicle_ar(parts[0])
+                                activities.extend(parts[1:])
+                                spans_to_remove.append((g_start, g_end))
+                            # Or if last part is vehicle (e.g., "(شاطئ 1 - شاطئ 2 - سيارة خاصة)")
+                            elif not is_train_line and veh_kw_re.search(parts[-1]) and len(parts[-1]) <= 38:
+                                vehicle = _normalize_vehicle_ar(parts[-1])
+                                activities.extend(parts[:-1])
+                                spans_to_remove.append((g_start, g_end))
+                            else:
+                                activities.extend(parts)
+                                spans_to_remove.append((g_start, g_end))
                         else:
-                            title_clean = rest.strip(" .:-")
-                    else:
-                        title_clean = rest.strip(" .:-")
+                            # Single phrase inside parentheses without '-'
+                            if not is_train_line and veh_kw_re.search(g_inner) and len(g_inner) <= 45:
+                                vehicle = _normalize_vehicle_ar(g_inner)
+                                spans_to_remove.append((g_start, g_end))
+                            elif len(g_inner) > 25:
+                                activities.append(clean_markdown(g_inner).strip())
+                                spans_to_remove.append((g_start, g_end))
+
+                    # Remove processed parenthesized groups from rest (from right to left)
+                    title_builder = rest
+                    for s_start, s_end in sorted(spans_to_remove, key=lambda x: x[0], reverse=True):
+                        title_builder = title_builder[:s_start] + " " + title_builder[s_end:]
+                    title_clean = re.sub(r"\s+", " ", title_builder).strip(" .:-")
 
                     route_details = None
                     if " -> " in title_clean or " ← " in title_clean:
@@ -1097,7 +1208,14 @@ def parse_travel_text(text: str, lang: Optional[str] = None) -> Dict[str, Any]:
             if re.match(r"^\d+\.\s*(?:ملاحظات|الشروط|Important Notes|Terms|Notes)", line_s, re.IGNORECASE):
                 continue
             if len(line_s) > 10:
-                data["notes"].append(line_s)
+                if len(line_s) > 190 and ". " in line_s:
+                    sub_notes = [sn.strip().rstrip(".") + "." for sn in re.split(r"\.\s+(?=[أ-يA-Z])", line_s) if len(sn.strip()) > 20]
+                    if len(sub_notes) > 1:
+                        data["notes"].extend(sub_notes)
+                    else:
+                        data["notes"].append(line_s)
+                else:
+                    data["notes"].append(line_s)
 
     if not data["notes"]:
         data["notes"] = generate_smart_notes(data, lang=detected_lang)
