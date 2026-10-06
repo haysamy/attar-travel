@@ -142,7 +142,9 @@ class QuotationMeta(BaseModel):
 
 
 class PriceTotal(BaseModel):
-    amount: str = Field("12,875.32", description="المبلغ الإجمالي")
+    amount: str = Field("12,875.32", description="المبلغ الإجمالي (بعد إضافة 22%)")
+    cash_amount: Optional[str] = Field(None, description="سعر الدفع كاش بعد خصم 10%")
+    net_amount: Optional[str] = Field(None, description="سعر النت الأصلي قبل إضافة النسبة")
     currency: str = Field("ريال سعودي", description="العملة")
 
 

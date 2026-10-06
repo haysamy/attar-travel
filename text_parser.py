@@ -1230,16 +1230,45 @@ def parse_travel_text(text: str, lang: Optional[str] = None) -> Dict[str, Any]:
                     "quantity": 1
                 })
 
-    # --- 2.6 Parse Total Price ---
+    # --- 2.6 Parse Total Price (with Net +22% and Cash -10% support) ---
+    def _parse_num_str(s: str):
+        if not s:
+            return None
+        cleaned_n = re.sub(r"[^\d\.]", "", s.replace(",", ""))
+        try:
+            return float(cleaned_n) if cleaned_n else None
+        except ValueError:
+            return None
+
+    def _fmt_price_num(val: float) -> str:
+        rounded = round(val)
+        if abs(val - rounded) < 0.05:
+            return f"{int(rounded):,}"
+        return f"{val:,.2f}"
+
+    net_m = re.search(
+        r"(?:سعر النت|السعر الصافي|التكلفة الصافية|سعر التكلفة|Net Price|Net Cost|Net Total|Net Amount)\s*:\s*([0-9\.,]+)\s*([^\n\r]*)",
+        full_text,
+        re.IGNORECASE
+    )
+    cash_m = re.search(
+        r"(?:سعر الكاش|سعر الدفع كاش(?:\s*\(خصم\s*10%\))?|سعر الدفع النقدي|الدفع كاش(?:\s*فقط)?|Cash Price(?:\s*\(10%\s*Off\))?|Cash Payment Price|Cash Discount Price)\s*:\s*([0-9\.,]+)\s*([^\n\r]*)",
+        full_text,
+        re.IGNORECASE
+    )
     total_m = re.search(
         r"(?:الإجمالي كلياً|الاجمالي كليا|السعر الإجمالي|المبلغ الإجمالي|السعر|إجمالي السعر|التكلفة الإجمالية|التكلفة|Grand Total|Total Price|Total Package Price|Total Amount|Package Price|Total Cost|Total|Price)\s*:\s*([0-9\.,]+)\s*([^\n\r]+)",
         full_text,
         re.IGNORECASE
     )
     if total_m:
+        raw_amt = clean_markdown(total_m.group(1)).strip()
+        raw_curr = clean_markdown(total_m.group(2)).strip()
+        # Strip any trailing parenthetical notes from currency
+        raw_curr = re.split(r"[\(\|]", raw_curr)[0].strip() or ("SAR" if is_en else "ريال سعودي")
         data["total_price"] = {
-            "amount": clean_markdown(total_m.group(1)).strip(),
-            "currency": clean_markdown(total_m.group(2)).strip()
+            "amount": raw_amt,
+            "currency": raw_curr
         }
     else:
         total_text_m = re.search(
@@ -1249,7 +1278,6 @@ def parse_travel_text(text: str, lang: Optional[str] = None) -> Dict[str, Any]:
         )
         if total_text_m:
             raw_val = clean_markdown(total_text_m.group(1)).strip()
-            # Support prefix currency like "SAR 16,800" or "$4,500 USD"
             prefix_curr = re.match(r"^(SAR|USD|EUR|AED|GBP|\$|€)\s*([0-9\.,]+)(?:\s*([A-Za-z]+))?$", raw_val, re.IGNORECASE)
             curr_match = re.search(r"[–\-\s]\s*(ريال\s*سعودي|ريال|SAR|USD|\$|EUR|AED|GBP|Saudi Riyals?|درهم|دينار)", raw_val, re.IGNORECASE)
             if prefix_curr:
@@ -1267,6 +1295,42 @@ def parse_travel_text(text: str, lang: Optional[str] = None) -> Dict[str, Any]:
                     "amount": raw_val,
                     "currency": "SAR" if is_en else "ريال سعودي"
                 }
+
+    # If Net Price was explicitly given, compute +22% selling price and -10% cash price
+    if net_m:
+        net_val = _parse_num_str(clean_markdown(net_m.group(1)))
+        net_curr = clean_markdown(net_m.group(2)).strip() or ("SAR" if is_en else "ريال سعودي")
+        if net_val is not None:
+            sell_val = round(net_val * 1.22)
+            cash_val = round(sell_val * 0.90)
+            if not data.get("total_price"):
+                data["total_price"] = {
+                    "amount": _fmt_price_num(sell_val),
+                    "cash_amount": _fmt_price_num(cash_val),
+                    "net_amount": _fmt_price_num(net_val),
+                    "currency": net_curr
+                }
+            else:
+                data["total_price"]["net_amount"] = _fmt_price_num(net_val)
+                if not cash_m:
+                    cur_amt_val = _parse_num_str(data["total_price"].get("amount", ""))
+                    # If total_price equals net_val (user pasted net into total), apply +22%
+                    if cur_amt_val is not None and abs(cur_amt_val - net_val) < 1:
+                        data["total_price"]["amount"] = _fmt_price_num(sell_val)
+                        data["total_price"]["cash_amount"] = _fmt_price_num(cash_val)
+                    elif cur_amt_val is not None:
+                        data["total_price"]["cash_amount"] = _fmt_price_num(round(cur_amt_val * 0.90))
+
+    if data.get("total_price"):
+        if cash_m:
+            c_val = _parse_num_str(clean_markdown(cash_m.group(1)))
+            if c_val is not None:
+                data["total_price"]["cash_amount"] = _fmt_price_num(c_val)
+        elif not data["total_price"].get("cash_amount"):
+            # If no cash_amount was provided, check if total_price is already marked as post-markup or compute 10% cash discount
+            amt_val = _parse_num_str(data["total_price"].get("amount", ""))
+            if amt_val is not None:
+                data["total_price"]["cash_amount"] = _fmt_price_num(round(amt_val * 0.90))
 
     # --- 2.7 Parse Notes ---
     if "notes" in sections_text:

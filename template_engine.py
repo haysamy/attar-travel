@@ -1992,6 +1992,38 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]], lang: Optional[str] 
         tot_sub = "Inclusive of all mentioned accommodations, transfers, taxes, and service charges" if is_en else "شامل كافة الضرائب، الرسوم السياحية، والمصروفات المذكورة"
         curr_disp = _tr_val(pkg.total_price.currency, is_en)
         curr_margin = "ml-1" if is_en else "mr-1"
+
+        # Compute or read Cash Price (-10% for cash payment only)
+        raw_amt_str = str(pkg.total_price.amount or "").strip()
+        cash_amt_str = getattr(pkg.total_price, "cash_amount", None)
+        if not cash_amt_str:
+            amt_num_clean = re.sub(r"[^\d\.]", "", raw_amt_str.replace(",", ""))
+            try:
+                amt_float = float(amt_num_clean) if amt_num_clean else None
+                if amt_float is not None:
+                    c_val = round(amt_float * 0.90)
+                    cash_amt_str = f"{int(c_val):,}"
+            except ValueError:
+                cash_amt_str = None
+
+        cash_badge_html = ""
+        if cash_amt_str:
+            cash_badge_lbl = "Cash Payment Only (10% OFF):" if is_en else "سعر الدفع كاش فقط (خصم 10%):"
+            cash_badge_html = f"""
+            <div class="bg-gradient-to-r from-emerald-500/25 via-teal-500/20 to-emerald-500/25 border border-emerald-300/50 rounded-xl px-4 py-2 flex flex-col items-center justify-center shadow-inner shrink-0 whitespace-nowrap">
+              <div class="flex items-center gap-1.5 text-[11px] font-extrabold text-emerald-200">
+                <span>💵</span>
+                <span>{cash_badge_lbl}</span>
+              </div>
+              <div class="mt-0.5 flex items-baseline">
+                <span class="text-xl md:text-2xl font-black text-emerald-300 font-num tracking-tight">{html.escape(cash_amt_str)}</span>
+                <span class="text-[11px] text-white font-bold {curr_margin}">{html.escape(curr_disp)}</span>
+              </div>
+            </div>
+            """
+
+        std_price_lbl = "Package Price:" if is_en else "سعر البكج:"
+
         total_price_display = f"""
         <div class="rounded-2xl shadow-md overflow-hidden border-2 border-sky-300 avoid-break bg-white" data-purpose="total-price-and-installments">
           <div class="bg-gradient-to-br from-[#083344] via-[#0b4f71] to-[#01579b] text-white p-4 md:p-5 flex flex-wrap items-center justify-between gap-4">
@@ -2007,9 +2039,15 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]], lang: Optional[str] 
                 <div class="text-[11px] md:text-xs text-sky-300 mt-0.5">{tot_sub}</div>
               </div>
             </div>
-            <div class="text-left bg-white/10 px-5 py-2 rounded-xl border border-white/20 shadow-inner shrink-0 whitespace-nowrap">
-              <span class="text-2xl md:text-3xl font-black text-amber-400 font-num tracking-tight">{html.escape(pkg.total_price.amount)}</span>
-              <span class="text-xs text-white font-bold {curr_margin}">{html.escape(curr_disp)}</span>
+            <div class="flex flex-wrap items-stretch gap-2.5 shrink-0">
+              <div class="text-center bg-white/10 px-4 py-2 rounded-xl border border-white/20 shadow-inner shrink-0 whitespace-nowrap flex flex-col justify-center">
+                <div class="text-[10px] font-bold text-sky-200 mb-0.5">{std_price_lbl}</div>
+                <div class="flex items-baseline justify-center">
+                  <span class="text-2xl md:text-3xl font-black text-amber-400 font-num tracking-tight">{html.escape(raw_amt_str)}</span>
+                  <span class="text-xs text-white font-bold {curr_margin}">{html.escape(curr_disp)}</span>
+                </div>
+              </div>
+              {cash_badge_html}
             </div>
           </div>
           {installment_bar_html}
