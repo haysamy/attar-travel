@@ -322,6 +322,14 @@ def parse_travel_text(text: str, lang: Optional[str] = None) -> Dict[str, Any]:
             "booking_no": "TAJ" + now_dt.strftime("%y%m%d%H"),
             "quotation_no": "QTAJ" + now_dt.strftime("%y%m%d%H"),
             "destination": "Travel Package" if is_en else "رحلة سياحية",
+            "package_title": None,
+            "package_subtitle": None,
+            "includes": [],
+            "adults": None,
+            "children": None,
+            "infants": None,
+            "sales_agent": None,
+            "installment_methods": ["Tabby", "Tamara", "MIS Pay"] if is_en else ["تابي (Tabby)", "تمارا (Tamara)", "MIS Pay"],
             "total_nights": None,
             "issue_date": today_str,
             "booking_status": "Preliminary Unconfirmed Booking" if is_en else "حجز مبدئي غير مؤكد"
@@ -354,11 +362,73 @@ def parse_travel_text(text: str, lang: Optional[str] = None) -> Dict[str, Any]:
     if quot_m:
         data["meta"]["quotation_no"] = quot_m.group(1).strip()
 
-    dest_m = re.search(r"(?:الوجهة|Destination)\s*:\s*([^\n\r\(\–\-]+)(?:[\(\–\-]\s*(\d+)\s*(?:ليلة|ليالي|ايام|أيام|يوم|Nights?|Days?))?", full_text, re.IGNORECASE)
+    dest_m = re.search(
+        r"^[ \t]*(?:الوجهة|بلد البكج|الدولة|Destination|Country)\s*:\s*([^\n\r\(]+?)(?:\s*[\(\–\-]\s*(\d+)\s*(?:ليلة|ليالي|ايام|أيام|يوم|Nights?|Days?)\s*\)?)?[ \t]*$",
+        full_text,
+        re.IGNORECASE | re.MULTILINE
+    )
     if dest_m:
-        data["meta"]["destination"] = clean_markdown(dest_m.group(1)).strip()
+        data["meta"]["destination"] = clean_markdown(dest_m.group(1)).strip(" -–—")
         if dest_m.group(2):
             data["meta"]["total_nights"] = int(dest_m.group(2))
+
+    pkg_title_m = re.search(r"^[ \t]*(?:عنوان البكج|اسم البكج|عنوان العرض|البكج|Package Title|Package Name|Offer Title)\s*:\s*([^\n\r]+)", full_text, re.IGNORECASE | re.MULTILINE)
+    if pkg_title_m:
+        data["meta"]["package_title"] = clean_markdown(pkg_title_m.group(1)).strip()
+
+    pkg_sub_m = re.search(r"^[ \t]*(?:وصف البكج|شعار البكج|العنوان الفرعي|Package Subtitle|Subtitle)\s*:\s*([^\n\r]+)", full_text, re.IGNORECASE | re.MULTILINE)
+    if pkg_sub_m:
+        data["meta"]["package_subtitle"] = clean_markdown(pkg_sub_m.group(1)).strip()
+
+    agent_m = re.search(
+        r"^[ \t]*(?:الموظف المسؤول|اسم الموظف|مستشار السفر|موظف الحجز|معد العرض|إعداد العرض|إعداد|بواسطة|Sales Agent|Travel Consultant|Prepared By|Agent Name|Agent|Employee)\s*:\s*([^\n\r]+)",
+        full_text,
+        re.IGNORECASE | re.MULTILINE
+    )
+    if agent_m:
+        data["meta"]["sales_agent"] = clean_markdown(agent_m.group(1)).strip()
+
+    inc_m = re.search(
+        r"^[ \t]*(?:يشمل العرض|البكج يشمل|يشمل البكج|مشتملات العرض|الفئات المشمولة|المشتملات|Package Includes|Offer Includes|Included Categories|Includes)\s*:\s*([^\n\r]+)",
+        full_text,
+        re.IGNORECASE | re.MULTILINE
+    )
+    if inc_m:
+        raw_inc = clean_markdown(inc_m.group(1)).strip()
+        inc_items = [x.strip() for x in re.split(r"[,،|•\-–+]+", raw_inc) if x.strip()]
+        if inc_items:
+            data["meta"]["includes"] = inc_items
+
+    inst_m = re.search(
+        r"^[ \t]*(?:طرق التقسيط|التقسيط المتاح|خيارات التقسيط|التقسيط|Installment Methods|Installments|Payment Plan)\s*:\s*([^\n\r]+)",
+        full_text,
+        re.IGNORECASE | re.MULTILINE
+    )
+    if inst_m:
+        raw_inst = clean_markdown(inst_m.group(1)).strip()
+        inst_items = [x.strip() for x in re.split(r"[,،|•\-–+]+", raw_inst) if x.strip()]
+        if inst_items:
+            data["meta"]["installment_methods"] = inst_items
+
+    # Parse Meta Passenger / Pricing Basis line if provided
+    meta_pax_m = re.search(
+        r"^[ \t]*(?:عدد الأشخاص|عدد المسافرين|الأشخاص|المسافرين|مسعر على|مسعر لـ|التسعير|Passengers|Guests|Priced For|Travelers)\s*:\s*([^\n\r]+)",
+        full_text,
+        re.IGNORECASE | re.MULTILINE
+    )
+    if meta_pax_m:
+        pax_line = meta_pax_m.group(1)
+        ad_m = re.search(r"(?:بالغين|بالغ|كبار|Adults?)\s*[:\-]?\s*(\d+)|(\d+)\s*(?:بالغين|بالغ|كبار|Adults?)", pax_line, re.IGNORECASE)
+        ch_m = re.search(r"(?:الأطفال|أطفال|اطفال|طفل|Child(?:ren)?|Kids?)\s*[:\-]?\s*(\d+)|(\d+)\s*(?:الأطفال|أطفال|اطفال|طفل|Child(?:ren)?|Kids?)", pax_line, re.IGNORECASE)
+        inf_m = re.search(r"(?:الرضع|رضع|رضيع|Infants?|Bab(?:y|ies))\s*[:\-]?\s*(\d+)|(\d+)\s*(?:الرضع|رضع|رضيع|Infants?|Bab(?:y|ies))", pax_line, re.IGNORECASE)
+        if ad_m:
+            data["meta"]["adults"] = int(ad_m.group(1) or ad_m.group(2))
+        elif pax_line.strip().isdigit():
+            data["meta"]["adults"] = int(pax_line.strip())
+        if ch_m:
+            data["meta"]["children"] = int(ch_m.group(1) or ch_m.group(2))
+        if inf_m:
+            data["meta"]["infants"] = int(inf_m.group(1) or inf_m.group(2))
 
     issue_m = re.search(r"(?:تاريخ الإصدار|Issue Date|Date of Issue)\s*:\s*([^\n\r]+)", full_text, re.IGNORECASE)
     if issue_m:
@@ -1248,6 +1318,52 @@ def parse_travel_text(text: str, lang: Optional[str] = None) -> Dict[str, Any]:
             d2 = parse_date_obj(f_last_date)
             if d1 and d2 and d2 > d1:
                 data["meta"]["total_nights"] = (d2 - d1).days
+        elif data["car_rentals"] and data["car_rentals"][0].get("days_count"):
+            data["meta"]["total_nights"] = data["car_rentals"][0]["days_count"]
+
+    # --- 2.9 Auto-populate Passengers in Meta if not explicitly set ---
+    if data["meta"]["adults"] is None:
+        if data["flights"] and data["flights"][0].get("passengers"):
+            fp = data["flights"][0]["passengers"]
+            data["meta"]["adults"] = fp.get("adults", 2)
+            data["meta"]["children"] = fp.get("children", 0)
+            data["meta"]["infants"] = fp.get("infants", 0)
+        else:
+            data["meta"]["adults"] = 2
+            data["meta"]["children"] = 0
+            data["meta"]["infants"] = 0
+    else:
+        if data["meta"]["children"] is None:
+            data["meta"]["children"] = 0
+        if data["meta"]["infants"] is None:
+            data["meta"]["infants"] = 0
+
+    # --- 2.10 Auto-detect Included Categories if not explicitly set ---
+    if not data["meta"]["includes"]:
+        inc_list = []
+        if data["flights"]:
+            inc_list.append("Flights" if is_en else "طيران")
+        if data["hotels"]:
+            inc_list.append("Hotels" if is_en else "فنادق")
+        if data["transports"]:
+            all_tr_items = [it for g in data["transports"] for it in g.get("items", [])]
+            has_tr_train = any(
+                any(w in (it.get("title") or "") or w in (it.get("vehicle_type") or "") for w in ["قطار", "Railjet", "EuroCity", "Train"])
+                for it in all_tr_items
+            )
+            has_tr_car = any(
+                not any(w in (it.get("title") or "") or w in (it.get("vehicle_type") or "") for w in ["قطار", "Railjet", "EuroCity", "Train"])
+                for it in all_tr_items
+            )
+            if has_tr_car:
+                inc_list.append("Sightseeing Tours" if is_en else "جولات سياحية")
+                if not data["car_rentals"]:
+                    inc_list.append("Car with Driver" if is_en else "سيارة بسائق")
+            if has_tr_train:
+                inc_list.append("Trains" if is_en else "قطارات")
+        if data["car_rentals"]:
+            inc_list.append("Car Rental" if is_en else "استئجار سيارة")
+        data["meta"]["includes"] = inc_list
 
     # Clean empty lists so dynamic sections omit cleanly if empty
     if not data["hotels"]:

@@ -13,6 +13,10 @@ import html
 import re
 from typing import Union, Dict, Any, List, Optional
 from models import TravelPackage, get_today_arabic_date, get_today_english_date
+try:
+    from installment_logos import TABBY_LOGO_URI, TAMARA_LOGO_URI, MIS_LOGO_URI
+except Exception:
+    TABBY_LOGO_URI, TAMARA_LOGO_URI, MIS_LOGO_URI = "", "", ""
 
 # Load company branding logo (base64)
 LOGO_URI = ""
@@ -181,6 +185,263 @@ def get_smart_notes_for_package(pkg: TravelPackage, lang: str = "ar") -> List[st
     return notes
 
 
+_CATCHY_DEST_TITLES_AR = {
+    "جورجيا": ("بكج جورجيا السياحي — سحر القوقاز والطبيعة", "استمتع بأجمل الإطلالات الجبلية في تبليسي وباتومي وجبال القوقاز الساحرة"),
+    "الشمال الإيطالي": ("بكج الشمال الإيطالي — سحر البحيرات والألب", "جولة استثنائية بين ميلانو وبحيرة كومو وغاردا وقمم الدولوميت الخلابة"),
+    "الشمال الايطالي": ("بكج الشمال الإيطالي — سحر البحيرات والألب", "جولة استثنائية بين ميلانو وبحيرة كومو وغاردا وقمم الدولوميت الخلابة"),
+    "جورجيا - الشمال الإيطالي": ("بكج جورجيا - الشمال الإيطالي المميز", "رحلة تجمع بين سحر طبيعة القوقاز وروعة بحيرات الشمال الإيطالي"),
+    "جورجيا - الشمال الايطالي": ("بكج جورجيا - الشمال الإيطالي المميز", "رحلة تجمع بين سحر طبيعة القوقاز وروعة بحيرات الشمال الإيطالي"),
+    "إيطاليا": ("بكج إيطاليا السياحي — الفن والجمال الأوروبي", "تجربة سياحية ساحرة تجمع بين عبق التاريخ الإيطالي وروعة الطبيعة"),
+    "تايلند": ("بكج تايلاند — سحر الشرق والجزر الاستوائية", "برنامج سياحي متكامل يجمع بين حيوية بانكوك وشواطئ بوكيت وكرابي الفيروزية"),
+    "تايلاند": ("بكج تايلاند — سحر الشرق والجزر الاستوائية", "برنامج سياحي متكامل يجمع بين حيوية بانكوك وشواطئ بوكيت وكرابي الفيروزية"),
+    "المالديف": ("بكج جزر المالديف — فخامة الاستجمام والمحيط", "إقامة ملكية فوق المياه الفيروزية وسط أجواء الخصوصية والرفاهية المطلقة"),
+    "طرابزون و الشمال التركي": ("بكج طرابزون والشمال التركي — جنة الطبيعة الخضراء", "انطلق بين مرتفعات أوزنجول وآيدر والشلالات الطبيعية في أجواء ساحرة"),
+    "طرابزون": ("بكج طرابزون والشمال التركي — جنة الطبيعة الخضراء", "انطلق بين مرتفعات أوزنجول وآيدر والشلالات الطبيعية في أجواء ساحرة"),
+    "اسطنبول وبورصة": ("بكج إسطنبول وبورصة — عبق التاريخ وسحر البوسفور", "جولات مميزة بين مضيق البوسفور، المعالم العثمانية، وجبل أولوداغ الأخضر"),
+    "إندونيسيا": ("بكج إندونيسيا وبالي — سحر الطبيعة الاستوائية", "رحلة استجمام ومغامرة بين شواطئ بالي الساحرة وطبيعة جاكرتا وبونشاك"),
+    "جاكرتا - إندونيسيا": ("بكج جاكرتا وإندونيسيا — سحر الطبيعة الآسيوية", "استكشف أجمل المعالم الطبيعية والترفيهية في قلب إندونيسيا"),
+    "سويسرا": ("بكج سويسرا الساحر — قمم الألب والبحيرات", "رحلة الأحلام بين انترلاكن، لوزيرن، وزيورخ وسط أروع المشاهد الأوروبية"),
+    "النمسا": ("بكج النمسا السياحي — سحر زيلامسي وفيينا", "إطلالات خلابة بين جبال الألب النمساوية والبحيرات الصافية والقصور التاريخية"),
+    "أذربيجان": ("بكج أذربيجان — لؤلؤة القوقاز وباكو وقابالا", "مزيج ساحر بين الحداثة الأوروبية والطبيعة الجبلية الخضراء في قابالا"),
+    "ماليزيا": ("بكج ماليزيا السياحي — كوالالمبور ولنكاوي", "برنامج عائلي وترفيهي متكامل بين الأبراج الحديثة والجزر الاستوائية"),
+}
+
+_CATCHY_DEST_TITLES_EN = {
+    "georgia": ("Georgia Signature Package — Caucasus Nature & Charm", "Experience breathtaking mountain views across Tbilisi, Batumi & the Caucasus"),
+    "northern italy": ("Northern Italy Package — Alpine Lakes & Dolomites", "An unforgettable journey through Milan, Lake Como, Garda & the Italian Alps"),
+    "georgia - northern italy": ("Georgia & Northern Italy Exclusive Package", "A twin-destination escape blending Caucasus landscapes with Italian Alpine lakes"),
+    "thailand": ("Thailand Signature Package — Tropical Islands & Culture", "A complete getaway combining vibrant Bangkok with Phuket & Krabi beaches"),
+    "maldives": ("Maldives Luxury Escape — Overwater Villas & Ocean Bliss", "Ultimate privacy, crystal-clear lagoons, and world-class island hospitality"),
+    "trabzon & northern turkey": ("Trabzon & Northern Turkey — Green Highlands Escape", "Discover Uzungol, Ayder Plateau, and lush Black Sea waterfalls"),
+    "istanbul & bursa": ("Istanbul & Bursa Package — Bosphorus & Heritage", "Explore historic palaces, private Bosphorus cruises, and Uludag Mountain"),
+    "switzerland": ("Switzerland Alpine Package — Peaks & Crystal Lakes", "A dream European itinerary across Interlaken, Lucerne, and Zurich"),
+    "austria": ("Austria Scenic Package — Vienna, Salzburg & Zell am See", "Alpine lakes, imperial palaces, and breathtaking European countryside"),
+}
+
+
+def _build_catchy_package_info(pkg: TravelPackage, is_en: bool):
+    meta = pkg.meta
+    dest_raw = (meta.destination or ("Travel Package" if is_en else "رحلة سياحية")).strip()
+    dest_clean = re.sub(r"\s*\([^)]*\)", "", dest_raw).strip(" -–—") or dest_raw
+
+    custom_title = (getattr(meta, "package_title", None) or "").strip()
+    custom_sub = (getattr(meta, "package_subtitle", None) or "").strip()
+
+    has_flights = bool(pkg.flights and len(pkg.flights) > 0)
+    has_hotels = bool(pkg.hotels and len(pkg.hotels) > 0)
+    has_transports = bool(pkg.transports and len(pkg.transports) > 0)
+    has_cars = bool(pkg.car_rentals and len(pkg.car_rentals) > 0)
+    sec_count = sum([has_flights, has_hotels, has_transports, has_cars])
+
+    if is_en:
+        d_low = dest_clean.lower()
+        matched_en = _CATCHY_DEST_TITLES_EN.get(d_low)
+        if not matched_en:
+            for k, v in _CATCHY_DEST_TITLES_EN.items():
+                if k in d_low:
+                    matched_en = v
+                    break
+        if custom_title:
+            title = custom_title
+        elif matched_en:
+            title = matched_en[0]
+        elif any(dest_clean.lower().startswith(p) for p in ["package", "offer", "tour"]):
+            title = dest_clean
+        elif sec_count == 1 and has_flights:
+            title = f"{dest_clean} Flight Offer — Best Airfare & Smooth Travel"
+        elif sec_count == 1 and has_cars:
+            title = f"{dest_clean} Self-Drive Car Rental Package"
+        elif sec_count == 1 and has_hotels:
+            title = f"{dest_clean} Luxury Hotel Stay Package"
+        else:
+            title = f"Exclusive {dest_clean} Travel Package"
+
+        if custom_sub:
+            subtitle = custom_sub
+        elif matched_en:
+            subtitle = matched_en[1]
+        else:
+            subtitle = "Tailor-made travel quotation crafted with premium comfort and seamless arrangements"
+        return title, subtitle, dest_clean
+
+    # Arabic mode
+    matched_ar = _CATCHY_DEST_TITLES_AR.get(dest_clean)
+    if not matched_ar:
+        for k, v in _CATCHY_DEST_TITLES_AR.items():
+            if k in dest_clean:
+                matched_ar = v
+                break
+
+    if custom_title:
+        title = custom_title
+    elif any(dest_clean.startswith(p) for p in ["بكج", "باقة", "عرض", "برنامج"]):
+        title = dest_clean if "—" in dest_clean or "-" in dest_clean else f"{dest_clean} السياحي المميز"
+    elif matched_ar:
+        if sec_count == 1 and has_flights:
+            title = f"بكج طيران {dest_clean} — أفضل المسارات والخطوط الجوية"
+        elif sec_count == 1 and has_cars:
+            title = f"بكج استئجار سيارة في {dest_clean} — حرية القيادة والانطلاق"
+        else:
+            title = matched_ar[0]
+    else:
+        if "-" in dest_clean or "–" in dest_clean or " و" in dest_clean:
+            title = f"بكج {dest_clean} — تجربة سياحية استثنائية"
+        elif sec_count == 1 and has_flights:
+            title = f"بكج طيران {dest_clean} — رحلات مريحة ومؤكدة"
+        elif sec_count == 1 and has_cars:
+            title = f"بكج استئجار سيارة في {dest_clean} — قيادة ذاتية مريحة"
+        else:
+            title = f"بكج {dest_clean} السياحي — رحلة الأحلام وأجمل المعالم"
+
+    if custom_sub:
+        subtitle = custom_sub
+    elif matched_ar:
+        subtitle = matched_ar[1]
+    else:
+        subtitle = "برنامج سياحي متكامل ومصمم بعناية فائقة ليمنحكم تجربة سفر لا تُنسى بأعلى معايير الرفاهية"
+
+    return title, subtitle, dest_clean
+
+
+def _build_included_categories(pkg: TravelPackage, is_en: bool) -> List[Dict[str, str]]:
+    """Returns a list of dicts with FontAwesome icons and Tailwind classes for the InclusionsRibbon."""
+    meta = pkg.meta
+    custom_includes = getattr(meta, "includes", None) or []
+
+    def _style_for_category(raw_cat: str) -> Dict[str, str]:
+        c_low = raw_cat.lower().strip()
+        if any(w in c_low for w in ["طيران", "تذاكر طيران", "رحلات جوية", "flight", "airfare", "airline"]):
+            return {
+                "fa_icon": "fa-solid fa-plane-departure",
+                "label": ("Flights" if is_en and not re.search(r"[A-Za-z]", raw_cat) else raw_cat),
+                "border_cls": "border-sky-200/80 hover:border-sky-400",
+                "text_cls": "text-sky-950",
+                "icon_color_cls": "text-sky-600",
+            }
+        if any(w in c_low for w in ["فنادق", "فندق", "إقامة", "اقامة", "منتجع", "hotel", "accommodation", "resort"]):
+            return {
+                "fa_icon": "fa-solid fa-hotel",
+                "label": ("Hotels" if is_en and not re.search(r"[A-Za-z]", raw_cat) else raw_cat),
+                "border_cls": "border-purple-200/80 hover:border-purple-300",
+                "text_cls": "text-purple-950",
+                "icon_color_cls": "text-purple-600",
+            }
+        if any(w in c_low for w in ["جولات", "جوات", "جولة", "مواصلات", "مسارات", "برنامج", "tour", "sightseeing", "transfer", "itinerary"]):
+            return {
+                "fa_icon": "fa-solid fa-map-location-dot",
+                "label": ("Sightseeing Tours" if is_en and not re.search(r"[A-Za-z]", raw_cat) else raw_cat),
+                "border_cls": "border-teal-200/80 hover:border-teal-400",
+                "text_cls": "text-teal-950",
+                "icon_color_cls": "text-teal-600",
+            }
+        if any(w in c_low for w in ["سائق", "سيارة بسائق", "سياره بسائق", "driver", "chauffeur", "private car"]):
+            return {
+                "fa_icon": "fa-solid fa-car-side",
+                "label": ("Car with Driver" if is_en and not re.search(r"[A-Za-z]", raw_cat) else raw_cat),
+                "border_cls": "border-emerald-200/80 hover:border-emerald-400",
+                "text_cls": "text-emerald-950",
+                "icon_color_cls": "text-emerald-600",
+            }
+        if any(w in c_low for w in ["استئجار", "تأجير", "ايجار", "إيجار", "قيادة ذاتية", "rental", "self-drive", "rent a car"]):
+            return {
+                "fa_icon": "fa-solid fa-key",
+                "label": ("Car Rental" if is_en and not re.search(r"[A-Za-z]", raw_cat) else raw_cat),
+                "border_cls": "border-cyan-200/80 hover:border-cyan-400",
+                "text_cls": "text-cyan-950",
+                "icon_color_cls": "text-cyan-600",
+            }
+        if any(w in c_low for w in ["قطار", "قطارات", "train", "rail"]):
+            return {
+                "fa_icon": "fa-solid fa-train-subway",
+                "label": ("Trains" if is_en and not re.search(r"[A-Za-z]", raw_cat) else raw_cat),
+                "border_cls": "border-amber-200/80 hover:border-amber-400",
+                "text_cls": "text-amber-950",
+                "icon_color_cls": "text-amber-600",
+            }
+        if any(w in c_low for w in ["خدمات", "هدايا", "شرائح", "استقبال", "gift", "service", "sim", "complimentary"]):
+            return {
+                "fa_icon": "fa-solid fa-gift",
+                "label": ("Complimentary Services" if is_en and not re.search(r"[A-Za-z]", raw_cat) else raw_cat),
+                "border_cls": "border-rose-200/80 hover:border-rose-400",
+                "text_cls": "text-rose-950",
+                "icon_color_cls": "text-rose-600",
+            }
+        return {
+            "fa_icon": "fa-solid fa-star",
+            "label": raw_cat,
+            "border_cls": "border-sky-200/80 hover:border-sky-400",
+            "text_cls": "text-sky-950",
+            "icon_color_cls": "text-sky-600",
+        }
+
+    if custom_includes:
+        return [_style_for_category(c) for c in custom_includes if str(c).strip()]
+
+    # Auto-detect from active package sections
+    badges = []
+    if pkg.flights and len(pkg.flights) > 0:
+        badges.append(_style_for_category("Flights" if is_en else "طيران"))
+
+    if pkg.hotels and len(pkg.hotels) > 0:
+        badges.append(_style_for_category("Hotels" if is_en else "فنادق"))
+
+    if pkg.transports and len(pkg.transports) > 0:
+        all_tr = [it for g in pkg.transports for it in g.items]
+        has_train = any(any(w in (it.title or "") or w in (it.vehicle_type or "") for w in ["قطار", "Railjet", "EuroCity", "Train"]) for it in all_tr)
+        has_non_train = any(not any(w in (it.title or "") or w in (it.vehicle_type or "") for w in ["قطار", "Railjet", "EuroCity", "Train"]) for it in all_tr)
+        has_car_rental = bool(pkg.car_rentals and len(pkg.car_rentals) > 0)
+
+        if has_non_train:
+            badges.append(_style_for_category("Sightseeing Tours" if is_en else "جولات سياحية"))
+            if not has_car_rental:
+                badges.append(_style_for_category("Car with Driver" if is_en else "سيارة بسائق"))
+        if has_train:
+            badges.append(_style_for_category("Trains" if is_en else "قطارات"))
+
+    if pkg.car_rentals and len(pkg.car_rentals) > 0:
+        badges.append(_style_for_category("Car Rental" if is_en else "استئجار سيارة"))
+
+    if not badges:
+        badges.append(_style_for_category("Integrated Package" if is_en else "بكج سياحي متكامل"))
+
+    return badges
+
+
+def _extract_agent_details(raw_agent: str, dest_clean: str, is_en: bool):
+    """Returns (agent_name, agent_role, agent_initials) for the Assigned Officer Card."""
+    cleaned = (raw_agent or "").strip()
+    default_role = "Travel & Tourism Consultant" if is_en else "مستشار سفر وسياحة"
+
+    if not cleaned or cleaned in ("مستشار السفر - عطار للسياحة", "مستشار المبيعات - عطار ترافل", "Travel Consultant - Attar Travel", "Attar Travel Sales Team", "أ. أحمد العطار", "Mr. Ahmed Al-Attar"):
+        name = "Haitham Mohammed" if is_en else "هيثم محمد"
+        role = default_role
+    elif " - " in cleaned or " | " in cleaned:
+        parts = re.split(r"\s*[-|]\s*", cleaned, maxsplit=1)
+        name = parts[0].strip()
+        role = parts[1].strip() if len(parts) > 1 and parts[1].strip() else default_role
+    else:
+        name = cleaned
+        role = default_role
+
+    # Compute 2-letter initials (e.g., "أ. أحمد العطار" -> "أع")
+    name_no_prefix = re.sub(r"^(?:أ\.|أ/|م\.|د\.|Mr\.|Ms\.|Mrs\.|Eng\.)\s*", "", name, flags=re.I).strip()
+    words = [w for w in name_no_prefix.split() if w]
+    if len(words) >= 2:
+        w1 = words[0][0]
+        w2_raw = words[-1]
+        if w2_raw.startswith("ال") and len(w2_raw) > 2:
+            w2 = w2_raw[2]
+        else:
+            w2 = w2_raw[0]
+        initials = (w1 + w2).upper()
+    elif len(words) == 1 and len(words[0]) >= 2:
+        initials = words[0][:2].upper()
+    else:
+        initials = "AT" if is_en else "أع"
+
+    return name, role, initials
+
+
 def render_html(data: Union[TravelPackage, Dict[str, Any]], lang: Optional[str] = None) -> str:
     """Generates the full HTML string for a TravelPackage instance or dictionary in Arabic ('ar') or English ('en')."""
     explicit_lang = lang
@@ -195,6 +456,297 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]], lang: Optional[str] 
     effective_lang = (explicit_lang or getattr(meta, "lang", None) or "ar").strip().lower()
     is_en = (effective_lang == "en")
     col_sep_cls = "border-r" if is_en else "border-l"
+
+    # 0. HERO PACKAGE OVERVIEW CARD (Matching exact TravelPackageCardContainer design)
+    catchy_title, catchy_subtitle, dest_clean = _build_catchy_package_info(pkg, is_en)
+    inc_badges = _build_included_categories(pkg, is_en)
+
+    # Split catchy_title into main part & gradient accent part around '—' or '-'
+    if "—" in catchy_title:
+        t_parts = [p.strip() for p in catchy_title.split("—", 1)]
+        title_part1, title_part2 = t_parts[0], t_parts[1]
+    elif " - " in catchy_title:
+        t_parts = [p.strip() for p in catchy_title.split(" - ", 1)]
+        title_part1, title_part2 = t_parts[0], t_parts[1]
+    elif "(" in catchy_title and catchy_title.endswith(")"):
+        idx_p = catchy_title.find("(")
+        title_part1 = catchy_title[:idx_p].strip()
+        title_part2 = catchy_title[idx_p:].strip("() ")
+    else:
+        title_part1 = f"{dest_clean} Package" if is_en else f"بكج {dest_clean}"
+        title_part2 = catchy_title if catchy_title != title_part1 else ("Luxury Travel Experience" if is_en else "سحر الطبيعة وأجمل المعالم السياحية")
+
+    # Resolve duration badge
+    total_nights_val = getattr(meta, "total_nights", None)
+    if not total_nights_val and pkg.hotels:
+        total_nights_val = sum(h.nights_count for h in pkg.hotels if h.nights_count)
+    duration_pill_html = ""
+    if total_nights_val and total_nights_val > 0:
+        dur_txt = f"{total_nights_val} Nights / {total_nights_val + 1} Days" if is_en else f"{total_nights_val} ليالي / {total_nights_val + 1} أيام"
+        duration_pill_html = f"""
+        <!-- Duration Badge -->
+        <div class="shimmer-badge inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 text-amber-950 font-bold text-xs shadow-sm shadow-amber-500/20 font-num whitespace-nowrap" data-purpose="duration-tag">
+          <i class="fa-solid fa-moon text-amber-900 text-[11px]"></i>
+          <span>{html.escape(dur_txt)}</span>
+        </div>
+        """
+    elif pkg.car_rentals and pkg.car_rentals[0].days_count:
+        c_days = pkg.car_rentals[0].days_count
+        dur_txt = f"{c_days} Days" if is_en else f"{c_days} أيام"
+        duration_pill_html = f"""
+        <!-- Duration Badge -->
+        <div class="shimmer-badge inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 text-amber-950 font-bold text-xs shadow-sm shadow-amber-500/20 font-num whitespace-nowrap" data-purpose="duration-tag">
+          <i class="fa-solid fa-calendar-day text-amber-900 text-[11px]"></i>
+          <span>{html.escape(dur_txt)}</span>
+        </div>
+        """
+
+    # Resolve passenger counts (Adults, Children, Infants)
+    adults_cnt = getattr(meta, "adults", None)
+    children_cnt = getattr(meta, "children", None)
+    infants_cnt = getattr(meta, "infants", None)
+    if adults_cnt is None:
+        if pkg.flights and len(pkg.flights) > 0 and pkg.flights[0].passengers:
+            adults_cnt = pkg.flights[0].passengers.adults
+            children_cnt = pkg.flights[0].passengers.children
+            infants_cnt = pkg.flights[0].passengers.infants
+        else:
+            adults_cnt = 2
+            children_cnt = 0
+            infants_cnt = 0
+    else:
+        if children_cnt is None:
+            children_cnt = 0
+        if infants_cnt is None:
+            infants_cnt = 0
+
+    dest_prefix = "Destination" if is_en else "الوجهة"
+    season_badge_txt = "Featured Season Offers" if is_en else "عروض الموسم المميزة"
+    includes_hdr = "Package Includes:" if is_en else "يشمل البكج:"
+    priced_for_main = "Quotation Priced For" if is_en else "العرض مسعّر لـ"
+    priced_for_sub = "(Passengers):" if is_en else "(عدد الأشخاص):"
+    tax_included_lbl = "Incl. Tax & Service" if is_en else "شامل الضريبة والخدمة"
+    adults_word = "Adults:" if is_en else "البالغين:"
+    children_word = "Children:" if is_en else "الأطفال:"
+    infants_word = "Infants:" if is_en else "الرضع:"
+    agent_hdr = "Assigned Officer:" if is_en else "الموظف المسؤول:"
+    online_now_lbl = "Online Now" if is_en else "متصل الآن"
+    footer_updated_lbl = "Recently updated based on hotel & flight availability" if is_en else "تم التحديث مؤخراً وفق توفر المقاعد الفندقية"
+    btn_full_details_lbl = "Full Itinerary Details" if is_en else "تفاصيل البرنامج الكامل"
+    btn_confirm_pkg_lbl = "Confirm & Book Package" if is_en else "تأكيد وحجز البكج"
+    confirm_arrow_icon = "fa-arrow-right" if is_en else "fa-arrow-left"
+
+    children_num_cls = (
+        "bg-amber-500 text-white font-black"
+        if children_cnt > 0
+        else "bg-slate-100 text-slate-700 font-bold"
+    )
+    infants_num_cls = (
+        "bg-rose-500 text-white font-black"
+        if infants_cnt > 0
+        else "bg-slate-100 text-slate-700 font-bold"
+    )
+
+    # Resolve Sales Agent Name, Role & Initials
+    raw_agent = (getattr(meta, "sales_agent", None) or "").strip()
+    agent_name, agent_role, agent_initials = _extract_agent_details(raw_agent, dest_clean, is_en)
+
+    inc_pills_html = "".join([
+        f"""
+        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white border {b['border_cls']} {b['text_cls']} text-xs font-bold shadow-2xs transition-all whitespace-nowrap">
+          <span class="flex items-center justify-center w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 text-[9px]">
+            <i class="fa-solid fa-check"></i>
+          </span>
+          <span>{html.escape(b['label'])}</span>
+          <span class="{b['icon_color_cls']} text-xs mr-0.5">
+            <i class="{b['fa_icon']}"></i>
+          </span>
+        </div>
+        """
+        for b in inc_badges
+    ])
+
+    package_overview_html = f"""
+    <!-- BEGIN: TravelPackageCardContainer -->
+    <div class="w-full avoid-break" data-purpose="package-summary-wrapper">
+      <!-- Outer Card Shell (Synced proportions with quotation cards) -->
+      <div class="relative bg-white rounded-2xl shadow-md border border-slate-200/90 overflow-hidden">
+        <!-- BEGIN: HeroHeaderSection -->
+        <section class="relative bg-gradient-to-l from-[#072d4a] via-[#09416b] to-[#046294] text-white px-4 py-3.5 sm:px-5 sm:py-4 overflow-hidden" data-purpose="card-hero-banner">
+          <!-- Abstract glowing backdrop effects -->
+          <div class="absolute inset-0 hero-pattern pointer-events-none opacity-80"></div>
+          <div class="absolute -top-20 -left-16 w-60 h-60 bg-cyan-400/20 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="absolute -bottom-20 -right-12 w-60 h-60 bg-blue-500/15 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="relative z-10 flex flex-col gap-2.5">
+            <!-- Top Row: Badges & Travel Identifier -->
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <!-- Right/Start: Tags (Destination + Duration) -->
+              <div class="flex flex-wrap items-center gap-2">
+                <!-- Destination Badge -->
+                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/20 backdrop-blur-md text-xs font-semibold tracking-wide whitespace-nowrap" data-purpose="destination-tag">
+                  <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping"></span>
+                  <i class="fa-solid fa-map-pin text-rose-400 text-xs"></i>
+                  <span>{dest_prefix}: <span class="text-white font-bold">{html.escape(dest_clean)}</span></span>
+                </div>
+                {duration_pill_html}
+              </div>
+              <!-- Left/End: Premium Category Pill -->
+              <div class="flex items-center gap-1.5 text-[11px] font-semibold text-cyan-200 bg-cyan-950/40 px-3 py-1 rounded-full border border-cyan-400/30 whitespace-nowrap">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                <span>{season_badge_txt}</span>
+                <i class="fa-solid fa-sparkles text-amber-300 mr-0.5"></i>
+              </div>
+            </div>
+            <!-- Mid Row: Title & Description with World Icon (Always Horizontal) -->
+            <div class="flex items-center justify-between gap-4 pt-0.5">
+              <div class="space-y-1 min-w-0 flex-1">
+                <!-- Package Title -->
+                <h1 class="text-lg sm:text-xl md:text-2xl font-black tracking-tight text-white leading-snug flex flex-wrap items-baseline gap-1.5">
+                  <span>{html.escape(title_part1)}</span>
+                  <span class="text-cyan-300 font-light">—</span>
+                  <span class="text-transparent bg-clip-text bg-gradient-to-r from-teal-200 via-cyan-100 to-white">{html.escape(title_part2)}</span>
+                </h1>
+                <!-- Detailed Subtitle Description -->
+                <p class="text-slate-200/90 text-xs sm:text-sm leading-relaxed font-tajawal font-normal">
+                  {html.escape(catchy_subtitle)}
+                </p>
+              </div>
+              <!-- Globe Visual Icon Stamp -->
+              <div class="hidden sm:flex shrink-0 items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-400/20 to-blue-600/30 border border-cyan-300/30 backdrop-blur-md shadow-inner">
+                <div class="w-9 h-9 rounded-full bg-cyan-500/20 border border-cyan-300/40 flex items-center justify-center text-cyan-200 text-lg shadow-glow">
+                  <i class="fa-solid fa-earth-asia"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <!-- END: HeroHeaderSection -->
+
+        <!-- BEGIN: InclusionsRibbon (Single Compact Horizontal Row) -->
+        <section class="bg-gradient-to-r from-slate-50 via-sky-50/50 to-slate-50 border-y border-slate-200/80 px-4 sm:px-5 py-2.5" data-purpose="package-inclusions-bar">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <!-- Inclusions Header Label -->
+            <div class="flex items-center gap-2 text-sky-950 font-black text-xs sm:text-sm shrink-0">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-cyan-500 text-white text-[11px] shadow-xs">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+              </span>
+              <span>{includes_hdr}</span>
+            </div>
+            <!-- Feature Badges Row -->
+            <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              {inc_pills_html}
+            </div>
+          </div>
+        </section>
+        <!-- END: InclusionsRibbon -->
+
+        <!-- BEGIN: MetaDetailsSection -->
+        <section class="px-4 sm:px-5 py-3 bg-white" data-purpose="pricing-and-agent-meta">
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-stretch">
+            <!-- Pricing & Passenger Count Breakdown (7 Cols) -->
+            <div class="sm:col-span-7 bg-slate-50/80 rounded-xl p-3 border border-slate-200 flex flex-col justify-between gap-2.5" data-purpose="passenger-breakdown-card">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <div class="w-7 h-7 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center text-xs shrink-0">
+                    <i class="fa-solid fa-users"></i>
+                  </div>
+                  <h3 class="text-xs sm:text-sm font-bold text-slate-900 whitespace-nowrap">
+                    {priced_for_main} <span class="text-slate-500 font-semibold text-xs">{priced_for_sub}</span>
+                  </h3>
+                </div>
+                <span class="text-[10px] font-semibold text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200 whitespace-nowrap">{tax_included_lbl}</span>
+              </div>
+              <!-- Traveler Distribution Chips -->
+              <div class="grid grid-cols-3 gap-2">
+                <!-- Adults -->
+                <div class="flex items-center justify-between gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-sky-200/90 shadow-2xs">
+                  <div class="flex items-center gap-1 text-[11px] text-slate-700 font-bold whitespace-nowrap">
+                    <i class="fa-solid fa-user text-sky-600 text-[10px]"></i>
+                    <span>{adults_word}</span>
+                  </div>
+                  <span class="inline-flex items-center justify-center w-6 h-6 rounded-md bg-sky-800 text-white font-black text-xs font-num shrink-0">{adults_cnt}</span>
+                </div>
+                <!-- Children -->
+                <div class="flex items-center justify-between gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-amber-200/80 shadow-2xs">
+                  <div class="flex items-center gap-1 text-[11px] text-slate-700 font-bold whitespace-nowrap">
+                    <i class="fa-solid fa-child text-amber-500 text-[10px]"></i>
+                    <span>{children_word}</span>
+                  </div>
+                  <span class="inline-flex items-center justify-center w-6 h-6 rounded-md {children_num_cls} text-xs font-num shrink-0">{children_cnt}</span>
+                </div>
+                <!-- Infants -->
+                <div class="flex items-center justify-between gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
+                  <div class="flex items-center gap-1 text-[11px] text-slate-700 font-bold whitespace-nowrap">
+                    <i class="fa-solid fa-baby text-slate-400 text-[10px]"></i>
+                    <span>{infants_word}</span>
+                  </div>
+                  <span class="inline-flex items-center justify-center w-6 h-6 rounded-md {infants_num_cls} text-xs font-num shrink-0">{infants_cnt}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Assigned Officer Card (5 Cols) -->
+            <div class="sm:col-span-5 bg-gradient-to-br from-amber-50/60 to-yellow-50/40 rounded-xl p-3 border border-amber-200/80 flex flex-col justify-between gap-2.5" data-purpose="assigned-agent-card">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5 text-amber-950 font-bold text-xs whitespace-nowrap">
+                  <span class="w-6 h-6 rounded-md bg-amber-200/80 text-amber-800 flex items-center justify-center text-xs shadow-2xs shrink-0">
+                    <i class="fa-solid fa-briefcase"></i>
+                  </span>
+                  <span>{agent_hdr}</span>
+                </div>
+                <!-- Online status indicator badge -->
+                <div class="flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>{online_now_lbl}</span>
+                </div>
+              </div>
+              <!-- Agent Identity Pill -->
+              <div class="bg-white rounded-lg px-2.5 py-1.5 border border-amber-300/80 flex items-center justify-between gap-2 shadow-2xs">
+                <div class="flex items-center gap-2 min-w-0">
+                  <div class="relative shrink-0">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-600 to-cyan-500 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                      <i class="fa-solid fa-user-tie text-xs"></i>
+                    </div>
+                    <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
+                  </div>
+                  <div class="min-w-0">
+                    <div class="text-xs sm:text-sm font-black text-slate-900 leading-tight truncate">{html.escape(agent_name)}</div>
+                    <div class="text-[10px] text-slate-500 font-medium truncate">{html.escape(agent_role)}</div>
+                  </div>
+                </div>
+                <!-- Quick direct communication actions -->
+                <div class="flex items-center gap-1 shrink-0">
+                  <a href="https://wa.me/966555434406" target="_blank" aria-label="تواصل عبر واتساب" class="w-7 h-7 rounded-md bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-colors flex items-center justify-center text-xs">
+                    <i class="fa-brands fa-whatsapp"></i>
+                  </a>
+                  <a href="tel:+966555434406" aria-label="اتصال بالمسؤول" class="w-7 h-7 rounded-md bg-sky-50 text-sky-600 hover:bg-sky-600 hover:text-white transition-colors flex items-center justify-center text-xs">
+                    <i class="fa-solid fa-phone"></i>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <!-- END: MetaDetailsSection -->
+
+        <!-- BEGIN: CardFooterActions -->
+        <footer class="bg-slate-50 border-t border-slate-200/90 px-4 sm:px-5 py-2.5 flex flex-wrap items-center justify-between gap-2" data-purpose="action-buttons-toolbar">
+          <div class="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <i class="fa-regular fa-clock text-slate-400"></i>
+            <span>{footer_updated_lbl}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <a href="https://wa.me/966555434406" target="_blank" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-700 hover:to-cyan-700 text-white text-xs font-bold shadow-sm shadow-cyan-600/20 transition-all flex items-center justify-center gap-1.5 whitespace-nowrap">
+              <span>{btn_confirm_pkg_lbl}</span>
+              <i class="fa-solid {confirm_arrow_icon} text-[10px]"></i>
+            </a>
+          </div>
+        </footer>
+        <!-- END: CardFooterActions -->
+      </div>
+    </div>
+    <!-- END: TravelPackageCardContainer -->
+    """
 
     # 1. HOTELS SECTION
     hotels_html = ""
@@ -1387,7 +1939,53 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]], lang: Optional[str] 
         </section>
         """
 
-    # 6. TOTAL PRICE & TERMS
+    # 6. TOTAL PRICE & INSTALLMENT METHODS (Tabby, Tamara, MIS)
+    inst_hdr = "Available Installment Plans:" if is_en else "طرق التقسيط المتوفرة:"
+    inst_sub = "Split your package into easy and flexible monthly payments" if is_en else "قسّم قيمة البكج على دفعات شهرية ميسرة ومرنة"
+
+    if is_en:
+        pax_price_Parts = [f"{adults_cnt} {'Adult' if adults_cnt == 1 else 'Adults'}"]
+        if children_cnt > 0:
+            pax_price_Parts.append(f"{children_cnt} {'Child' if children_cnt == 1 else 'Children'}")
+        if infants_cnt > 0:
+            pax_price_Parts.append(f"{infants_cnt} {'Infant' if infants_cnt == 1 else 'Infants'}")
+        pax_price_summary = f"Priced for: {' + '.join(pax_price_Parts)}"
+    else:
+        pax_price_Parts = [f"{adults_cnt} بالغين"]
+        if children_cnt > 0:
+            pax_price_Parts.append(f"{children_cnt} أطفال")
+        if infants_cnt > 0:
+            pax_price_Parts.append(f"{infants_cnt} رضيع")
+        pax_price_summary = f"مسعّر لـ: {' + '.join(pax_price_Parts)}"
+
+    installment_bar_html = f"""
+    <div class="bg-gradient-to-r from-slate-50 via-sky-50/70 to-slate-50 px-4 py-3 border-t border-sky-200/80 flex flex-wrap items-center justify-between gap-3 text-slate-800">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <span class="w-8 h-8 rounded-lg bg-[#0E446E]/10 border border-[#0E446E]/20 text-[#0E446E] flex items-center justify-center text-base shrink-0">💳</span>
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-1.5">
+            <span class="text-xs font-extrabold text-[#083344]">{inst_hdr}</span>
+          </div>
+          <div class="text-[11px] text-slate-500 font-medium">{inst_sub}</div>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2.5 shrink-0">
+        <!-- Tabby Official Logo -->
+        <div class="inline-flex items-center justify-center h-8 px-1 py-0.5 rounded-xl bg-white border border-slate-200/90 shadow-xs">
+          <img src="{TABBY_LOGO_URI}" alt="Tabby - تابي" class="h-6 sm:h-7 w-auto object-contain rounded-lg">
+        </div>
+        <!-- Tamara Official Logo -->
+        <div class="inline-flex items-center justify-center h-8 px-1 py-0.5 rounded-xl bg-white border border-slate-200/90 shadow-xs">
+          <img src="{TAMARA_LOGO_URI}" alt="Tamara - تمارا" class="h-6 sm:h-7 w-auto object-contain rounded-lg">
+        </div>
+        <!-- MIS Pay Official Logo -->
+        <div class="inline-flex items-center justify-center h-8 px-1 py-0.5 rounded-xl bg-white border border-slate-200/90 shadow-xs">
+          <img src="{MIS_LOGO_URI}" alt="MIS Pay" class="h-6 sm:h-7 w-auto object-contain rounded-lg">
+        </div>
+      </div>
+    </div>
+    """
+
     total_price_display = ""
     if pkg.total_price and pkg.total_price.amount:
         tot_lbl = "Grand Total Package Price:" if is_en else "الإجمالي الكلي النهائي للعرض السياحي:"
@@ -1395,20 +1993,32 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]], lang: Optional[str] 
         curr_disp = _tr_val(pkg.total_price.currency, is_en)
         curr_margin = "ml-1" if is_en else "mr-1"
         total_price_display = f"""
-        <div class="bg-gradient-to-br from-[#083344] via-[#0b4f71] to-[#01579b] text-white rounded-2xl p-4 md:p-5 shadow-md flex items-center justify-between gap-4 border-2 border-sky-200 avoid-break">
-          <div class="flex items-center gap-3">
-            <div class="w-12 h-12 rounded-xl bg-amber-400 text-slate-900 flex items-center justify-center font-black text-2xl shadow shrink-0">
-              💰
+        <div class="rounded-2xl shadow-md overflow-hidden border-2 border-sky-300 avoid-break bg-white" data-purpose="total-price-and-installments">
+          <div class="bg-gradient-to-br from-[#083344] via-[#0b4f71] to-[#01579b] text-white p-4 md:p-5 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-12 h-12 rounded-xl bg-amber-400 text-slate-900 flex items-center justify-center font-black text-2xl shadow shrink-0">
+                💰
+              </div>
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="text-xs md:text-sm text-sky-100 font-extrabold">{tot_lbl}</span>
+                  <span class="bg-white/15 border border-white/25 text-amber-300 text-[11px] font-bold px-2.5 py-0.5 rounded-full font-num">👥 {html.escape(pax_price_summary)}</span>
+                </div>
+                <div class="text-[11px] md:text-xs text-sky-300 mt-0.5">{tot_sub}</div>
+              </div>
             </div>
-            <div>
-              <div class="text-xs md:text-sm text-sky-200 font-bold">{tot_lbl}</div>
-              <div class="text-[11px] md:text-xs text-sky-300">{tot_sub}</div>
+            <div class="text-left bg-white/10 px-5 py-2 rounded-xl border border-white/20 shadow-inner shrink-0 whitespace-nowrap">
+              <span class="text-2xl md:text-3xl font-black text-amber-400 font-num tracking-tight">{html.escape(pkg.total_price.amount)}</span>
+              <span class="text-xs text-white font-bold {curr_margin}">{html.escape(curr_disp)}</span>
             </div>
           </div>
-          <div class="text-left bg-white/10 px-5 py-2 rounded-xl border border-white/20 shadow-inner shrink-0 whitespace-nowrap">
-            <span class="text-2xl md:text-3xl font-black text-amber-400 font-num tracking-tight">{html.escape(pkg.total_price.amount)}</span>
-            <span class="text-xs text-white font-bold {curr_margin}">{html.escape(curr_disp)}</span>
-          </div>
+          {installment_bar_html}
+        </div>
+        """
+    else:
+        total_price_display = f"""
+        <div class="rounded-2xl shadow-sm overflow-hidden border-2 border-sky-200 avoid-break bg-white">
+          {installment_bar_html}
         </div>
         """
 
@@ -1450,7 +2060,7 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]], lang: Optional[str] 
         issue_disp = get_today_english_date() if is_en else get_today_arabic_date()
     else:
         issue_disp = raw_issue
-    issue_badge_lbl = f"Issue Date: {html.escape(issue_disp)}" if is_en else f"تاريخ الإصدار: {html.escape(issue_disp)}"
+    issue_badge_lbl = f"Quotation Date: {html.escape(issue_disp)}" if is_en else f"تاريخ العرض: {html.escape(issue_disp)}"
 
     footer_brand = html.escape(meta.company_name_en if is_en else meta.company_name)
     footer_support = "24/7 Customer Support" if is_en else "خدمة العملاء 24/7"
@@ -1477,6 +2087,8 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]], lang: Optional[str] 
 <link href="https://fonts.googleapis.com" rel="preconnect">
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<!-- FontAwesome Icons for crisp travel elements -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 
 <!-- Tailwind CSS CDN -->
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -1488,6 +2100,12 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]], lang: Optional[str] 
             brand: {{
               navy: '#0E446E',
               darkNavy: '#0A3150',
+              ocean: '#0c4a6e',
+              deepTeal: '#075985',
+              caribbean: '#0284c7',
+              turquoise: '#06b6d4',
+              gold: '#f59e0b',
+              amberLight: '#fef3c7',
               orange: '#EB5E18',
               orangeLight: '#FFF6F0',
               orangeBorder: '#F9A272',
@@ -1509,6 +2127,10 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]], lang: Optional[str] 
             sans: ['Cairo', 'sans-serif'],
             cairo: ['Cairo', 'sans-serif'],
             tajawal: ['Tajawal', 'sans-serif'],
+          }},
+          boxShadow: {{
+            'luxury': '0 20px 45px -10px rgba(11, 35, 58, 0.12), 0 10px 20px -5px rgba(12, 74, 110, 0.08)',
+            'glow': '0 0 25px rgba(6, 182, 212, 0.35)',
           }}
         }}
       }}
@@ -1521,6 +2143,35 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]], lang: Optional[str] 
       -webkit-font-smoothing: antialiased;
       background-color: #5d6d7e;
       direction: {html_dir};
+    }}
+
+    .glass-card {{
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(12px);
+    }}
+    .hero-pattern {{
+      background-image: radial-gradient(circle at 10% 20%, rgba(14, 165, 233, 0.25) 0%, transparent 40%),
+                        radial-gradient(circle at 90% 80%, rgba(45, 212, 191, 0.2) 0%, transparent 45%),
+                        radial-gradient(circle at 50% 50%, rgba(2, 132, 199, 0.15) 0%, transparent 50%);
+    }}
+    .shimmer-badge {{
+      position: relative;
+      overflow: hidden;
+    }}
+    .shimmer-badge::after {{
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(60deg, transparent, rgba(255,255,255,0.25), transparent);
+      transform: rotate(25deg);
+      animation: shimmerEffect 4.5s infinite;
+    }}
+    @keyframes shimmerEffect {{
+      0% {{ transform: translateX(-100%) rotate(25deg); }}
+      20%, 100% {{ transform: translateX(100%) rotate(25deg); }}
     }}
 
     .font-num {{
@@ -1669,6 +2320,7 @@ def render_html(data: Union[TravelPackage, Dict[str, Any]], lang: Optional[str] 
 
   <!-- BEGIN: MainContent -->
   <main class="p-4 md:p-6 space-y-4 bg-white">
+    {package_overview_html}
     {flights_html}
     {car_rentals_html}
     {hotels_html}

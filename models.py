@@ -125,6 +125,17 @@ class QuotationMeta(BaseModel):
     booking_no: str = Field("TAJ2411724881", description="رقم الحجز")
     quotation_no: str = Field("QTAJ2411724881", description="رقم عرض السعر")
     destination: str = Field("تايلند", description="الوجهة السياحية")
+    package_title: Optional[str] = Field(None, description="عنوان البكج الجذاب مثل: بكج جورجيا - الشمال الإيطالي")
+    package_subtitle: Optional[str] = Field(None, description="وصف ترويجي مختصر للبكج")
+    includes: Optional[List[str]] = Field(default_factory=list, description="الفئات المشمولة بالعرض: طيران، فنادق، جولات، سيارة بسائق، استئجار سيارة، قطارات")
+    adults: Optional[int] = Field(None, description="عدد الأشخاص البالغين في التسعير")
+    children: Optional[int] = Field(None, description="عدد الأطفال في التسعير")
+    infants: Optional[int] = Field(None, description="عدد الرضع في التسعير")
+    sales_agent: Optional[str] = Field(None, description="الموظف المسؤول الذي أعد العرض")
+    installment_methods: Optional[List[str]] = Field(
+        default_factory=lambda: ["تابي (Tabby)", "تمارا (Tamara)", "MIS Pay"],
+        description="طرق التقسيط المتوفرة"
+    )
     total_nights: Optional[int] = Field(14, description="إجمالي عدد الليالي")
     issue_date: Optional[str] = Field(default_factory=get_today_arabic_date, description="تاريخ الإصدار")
     booking_status: Optional[str] = Field("حجز مبدئي غير مؤكد", description="حالة الحجز")

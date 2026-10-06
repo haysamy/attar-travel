@@ -1,0 +1,88 @@
+Basic Quotation Info
+Company Name: Attar Travel
+Booking No: TAJ202601
+Quotation No: QTAJ202601
+Destination: Thailand (14 Nights)
+Package Title: Thailand Royal Escape (Bangkok & Phuket)
+Includes: Flights - Hotels - Sightseeing Tours - Car with Driver - Car Rental
+Passengers: Adults: 2 | Children: 0 | Infants: 0
+Sales Agent: Travel Consultant - Attar Travel
+
+1. Hotel Booking
+First City: Bangkok (2 Nights)
+Day 1 - Day 3
+Hotel: The Heritage Bangkok Hotel
+Room Type: Superior Room | Rooms: 1
+Meal Plan: Bed & Breakfast (BB)
+Check-in: 2026-11-24 | Check-out: 2026-11-26
+
+Second City: Phuket (4 Nights)
+Day 3 - Day 7
+Hotel: Wyndham Grand Phuket Kalim Bay
+Room Type: Pool Villa Ocean View | Rooms: 1
+Meal Plan: Bed & Breakfast (BB)
+Check-in: 2026-11-26 | Check-out: 2026-11-30
+
+2. Flight Booking
+Outbound Flight:
+Date: 2026-11-24
+Departure Time: 10:30 AM
+From: King Abdulaziz International Airport – Jeddah (JED)
+To: Suvarnabhumi International Airport – Bangkok (BKK)
+Airline: Saudia Airlines
+Passengers: Adults: 2 | Children: 0 | Infants: 0
+Luggage: 2 Pieces (23 kg each) + 7 kg Cabin
+
+Domestic Flight:
+Date: 2026-11-26
+Departure Time: 12:45 PM
+From: Suvarnabhumi Airport – Bangkok (BKK)
+To: Phuket International Airport (HKT)
+Airline: AirAsia
+Passengers: Adults: 2 | Children: 0 | Infants: 0
+Luggage: 20 kg per passenger
+
+Return Flight:
+Date: 2026-12-08
+Departure Time: 03:20 PM
+From: Phuket International Airport (HKT)
+To: King Abdulaziz International Airport – Jeddah (JED)
+Airline: Saudia Airlines
+Passengers: Adults: 2 | Children: 0 | Infants: 0
+Luggage: 2 Pieces (23 kg each) + 7 kg Cabin
+
+3. Transfers & Sightseeing Tours
+Bangkok
+Day 1 (2026-11-24): Private Airport Meet & Greet at Bangkok Airport and transfer to hotel (Private Sedan).
+Day 2 (2026-11-25): Full-Day Bangkok City & Cultural Tour (Grand Palace - Wat Arun - Safari World) (Private Sedan).
+
+Phuket
+Day 3 (2026-11-26): Private Airport Pickup from Phuket Airport and transfer to resort (Private Sedan).
+Day 4 (2026-11-27): Four Islands & James Bond Island Boat Cruise with Lunch Buffet (Private Sedan).
+
+4. Car Rental
+Car Type: Toyota Fortuner 2025 Family SUV (7 Seats)
+Pick-up Location: Phuket International Airport (HKT)
+Drop-off Location: Phuket International Airport (HKT)
+Pick-up Date: 2026-11-26
+Drop-off Date: 2026-11-30
+Days: 4 Days
+Insurance: Full Comprehensive Insurance (Zero Deductible)
+Transmission: Automatic
+Mileage: Unlimited Mileage
+Driver: Self-Drive (No Driver)
+
+5. Complimentary Services
+Complimentary Flower Welcome: Qty 1 | Thailand | Date: 2026-11-24 (Day 1)
+Local SIM Cards & Data Package: Qty 2 | Thailand | Date: 2026-11-24 (Day 1)
+
+6. Total Price
+Grand Total: 16,800 SAR
+
+7. Important Notes
+Standard hotel check-in starts at 14:00 (2:00 PM) and check-out is until 12:00 PM. Standard rooms accommodate 2 adults.
+Flight tickets are non-refundable and name changes are not permitted after issuance. Please arrive 3 hours prior to international flights and 2 hours prior to domestic flights.
+Daily sightseeing tours are up to 8 hours max starting from driver pick-up and include private vehicle and fuel (excluding attraction entry tickets).
+Car rental requires a valid national driving license, International Driving Permit (IDP), passport, and a credit card in the main driver's name for the security deposit.
+Marine and outdoor activities are subject to weather safety conditions; if cancelled due to weather, only the activity value is refunded or rescheduled.
+Quoted prices are subject to availability until payment is completed and bookings are officially confirmed.
