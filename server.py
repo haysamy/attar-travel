@@ -63,8 +63,18 @@ class QuotationRequestHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self._set_headers(status_code=204)
 
+    def do_HEAD(self):
+        self._set_headers("text/plain; charset=utf-8", status_code=200)
+
     def do_GET(self):
         url = self.path.split("?")[0]
+        user_agent = (self.headers.get("User-Agent") or "").lower()
+
+        # Lightweight health check for cron-job.org / UptimeRobot / Render health checks
+        if url in ("/health", "/ping", "/status") or any(bot in user_agent for bot in ("cron-job.org", "uptimerobot", "freshping", "hetrixtools", "statuscake")):
+            self._set_headers("text/plain; charset=utf-8", 200)
+            self.wfile.write(b"OK")
+            return
 
         if url == "/" or url == "/index.html":
             target = resolve_resource("app.html")
